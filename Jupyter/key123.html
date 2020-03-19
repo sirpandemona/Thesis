@@ -1,0 +1,105 @@
+<html>
+<head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.16.1/vis.css" type="text/css" />
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.16.1/vis-network.min.js"> </script>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+
+<style type="text/css">
+
+        #mynetwork {
+            width: 500px;
+            height: 500px;
+            background-color: #ffffff;
+            border: 1px solid lightgray;
+            position: relative;
+            float: left;
+        }
+
+        
+
+        
+
+        
+</style>
+
+</head>
+
+<body>
+<div id = "mynetwork"></div>
+
+
+<script type="text/javascript">
+
+    // initialize global variables.
+    var edges;
+    var nodes;
+    var network; 
+    var container;
+    var options, data;
+
+    
+    // This method is responsible for drawing the graph, returns the drawn network
+    function drawGraph() {
+        var container = document.getElementById('mynetwork');
+        
+        
+
+        // parsing and collecting nodes and edges from the python
+        nodes = new vis.DataSet([{"id": -9, "label": -9, "shape": "dot"}, {"id": -8, "label": -8, "shape": "dot"}, {"id": -7, "label": -7, "shape": "dot"}, {"id": -6, "label": -6, "shape": "dot"}, {"id": -5, "label": -5, "shape": "dot"}, {"id": -4, "label": -4, "shape": "dot"}, {"id": -3, "label": -3, "shape": "dot"}, {"id": -2, "label": -2, "shape": "dot"}, {"id": -1, "label": -1, "shape": "dot"}, {"id": 0, "label": 0, "shape": "dot"}, {"id": 1, "label": 1, "shape": "dot"}, {"id": 2, "label": 2, "shape": "dot"}, {"id": 3, "label": 3, "shape": "dot"}, {"id": 4, "label": 4, "shape": "dot"}, {"id": 5, "label": 5, "shape": "dot"}, {"id": 6, "label": 6, "shape": "dot"}, {"id": 7, "label": 7, "shape": "dot"}, {"id": 8, "label": 8, "shape": "dot"}, {"id": 9, "label": 9, "shape": "dot"}, {"id": 10, "label": 10, "shape": "dot"}]);
+        edges = new vis.DataSet([{"arrows": "to", "from": 0, "to": -1, "width": 10}, {"arrows": "to", "from": -1, "to": -1, "width": 10}, {"arrows": "to", "from": -1, "to": 2, "width": 10}, {"arrows": "to", "from": 2, "to": -1, "width": 10}, {"arrows": "to", "from": -1, "to": 0, "width": 10}, {"arrows": "to", "from": -1, "to": -4, "width": 6.0}, {"arrows": "to", "from": -4, "to": 0, "width": 3.0}, {"arrows": "to", "from": 0, "to": 0, "width": 10}, {"arrows": "to", "from": 0, "to": -2, "width": 10}, {"arrows": "to", "from": -2, "to": -1, "width": 10}, {"arrows": "to", "from": -1, "to": 4, "width": 4.0}, {"arrows": "to", "from": 4, "to": 2, "width": 10}, {"arrows": "to", "from": 2, "to": 5, "width": 2.0}, {"arrows": "to", "from": 5, "to": 3, "width": 5.0}, {"arrows": "to", "from": 3, "to": 3, "width": 10}, {"arrows": "to", "from": 3, "to": 4, "width": 8.0}, {"arrows": "to", "from": 4, "to": 1, "width": 9.0}, {"arrows": "to", "from": 1, "to": 1, "width": 10}, {"arrows": "to", "from": 1, "to": 2, "width": 10}, {"arrows": "to", "from": 2, "to": 0, "width": 10}, {"arrows": "to", "from": -2, "to": -3, "width": 10}, {"arrows": "to", "from": -3, "to": -2, "width": 10}, {"arrows": "to", "from": -3, "to": -4, "width": 10}, {"arrows": "to", "from": -4, "to": -4, "width": 8.0}, {"arrows": "to", "from": -4, "to": -6, "width": 3.0}, {"arrows": "to", "from": -6, "to": -4, "width": 5.0}, {"arrows": "to", "from": -4, "to": -1, "width": 6.0}, {"arrows": "to", "from": -1, "to": -6, "width": 1.0}, {"arrows": "to", "from": -4, "to": -2, "width": 7.0}, {"arrows": "to", "from": -3, "to": -3, "width": 10}, {"arrows": "to", "from": -2, "to": -6, "width": 3.0}, {"arrows": "to", "from": -6, "to": -3, "width": 2.0}, {"arrows": "to", "from": -3, "to": 0, "width": 7.0}, {"arrows": "to", "from": 0, "to": 1, "width": 10}, {"arrows": "to", "from": 1, "to": -1, "width": 10}, {"arrows": "to", "from": 2, "to": 2, "width": 10}, {"arrows": "to", "from": 2, "to": 3, "width": 10}, {"arrows": "to", "from": 3, "to": 0, "width": 10}, {"arrows": "to", "from": 0, "to": 3, "width": 10.0}, {"arrows": "to", "from": 3, "to": 2, "width": 10}, {"arrows": "to", "from": -1, "to": -2, "width": 10}, {"arrows": "to", "from": -2, "to": 0, "width": 10}, {"arrows": "to", "from": 0, "to": 2, "width": 10}, {"arrows": "to", "from": 2, "to": -2, "width": 5.0}, {"arrows": "to", "from": -2, "to": 1, "width": 10}, {"arrows": "to", "from": 1, "to": 0, "width": 10}, {"arrows": "to", "from": 3, "to": 1, "width": 10}, {"arrows": "to", "from": 2, "to": 1, "width": 10}, {"arrows": "to", "from": 1, "to": 3, "width": 10}, {"arrows": "to", "from": 1, "to": 4, "width": 10.0}, {"arrows": "to", "from": 4, "to": 5, "width": 2.0}, {"arrows": "to", "from": 5, "to": 4, "width": 4.0}, {"arrows": "to", "from": 4, "to": 4, "width": 9.0}, {"arrows": "to", "from": -6, "to": -2, "width": 2.0}, {"arrows": "to", "from": -2, "to": -2, "width": 10}, {"arrows": "to", "from": -2, "to": -4, "width": 10}, {"arrows": "to", "from": -4, "to": -3, "width": 10}, {"arrows": "to", "from": -2, "to": -5, "width": 3.0}, {"arrows": "to", "from": -5, "to": -2, "width": 3.0}, {"arrows": "to", "from": 1, "to": -2, "width": 10}, {"arrows": "to", "from": -1, "to": 1, "width": 10}, {"arrows": "to", "from": 0, "to": -3, "width": 8.0}, {"arrows": "to", "from": -3, "to": 1, "width": 5.0}, {"arrows": "to", "from": 0, "to": 4, "width": 2.0}, {"arrows": "to", "from": 4, "to": 3, "width": 8.0}, {"arrows": "to", "from": -3, "to": -5, "width": 4.0}, {"arrows": "to", "from": -5, "to": -3, "width": 3.0}, {"arrows": "to", "from": -3, "to": -1, "width": 7.0}, {"arrows": "to", "from": 3, "to": -2, "width": 1.0}, {"arrows": "to", "from": -2, "to": 3, "width": 3.0}, {"arrows": "to", "from": 3, "to": 5, "width": 4.0}, {"arrows": "to", "from": -4, "to": -5, "width": 6.0}, {"arrows": "to", "from": -5, "to": -4, "width": 7.0}, {"arrows": "to", "from": 3, "to": -1, "width": 5.0}, {"arrows": "to", "from": -1, "to": -3, "width": 6.0}, {"arrows": "to", "from": 2, "to": 4, "width": 9.0}, {"arrows": "to", "from": 3, "to": 6, "width": 1.0}, {"arrows": "to", "from": 6, "to": 1, "width": 1.0}, {"arrows": "to", "from": 1, "to": -3, "width": 3.0}, {"arrows": "to", "from": 4, "to": 0, "width": 4.0}, {"arrows": "to", "from": 1, "to": -4, "width": 1.0}, {"arrows": "to", "from": 2, "to": -4, "width": 1.0}, {"arrows": "to", "from": -5, "to": -6, "width": 2.0}, {"arrows": "to", "from": 4, "to": 6, "width": 1.0}, {"arrows": "to", "from": 6, "to": 3, "width": 1.0}, {"arrows": "to", "from": -3, "to": -6, "width": 1.0}, {"arrows": "to", "from": -6, "to": -1, "width": 1.0}, {"arrows": "to", "from": 4, "to": -1, "width": 2.0}, {"arrows": "to", "from": 1, "to": 5, "width": 3.0}, {"arrows": "to", "from": -3, "to": 2, "width": 1.0}, {"arrows": "to", "from": 0, "to": -4, "width": 1.0}, {"arrows": "to", "from": -4, "to": 2, "width": 1.0}, {"arrows": "to", "from": -2, "to": 2, "width": 5.0}, {"arrows": "to", "from": 5, "to": 7, "width": 2.0}, {"arrows": "to", "from": 7, "to": 4, "width": 2.0}, {"arrows": "to", "from": -1, "to": -5, "width": 1.0}, {"arrows": "to", "from": -4, "to": -7, "width": 1.0}, {"arrows": "to", "from": -7, "to": -3, "width": 1.0}, {"arrows": "to", "from": 4, "to": 9, "width": 1.0}, {"arrows": "to", "from": 9, "to": 8, "width": 1.0}, {"arrows": "to", "from": 8, "to": 9, "width": 1.0}, {"arrows": "to", "from": 9, "to": 5, "width": 1.0}, {"arrows": "to", "from": 5, "to": 10, "width": 1.0}, {"arrows": "to", "from": 10, "to": 1, "width": 1.0}, {"arrows": "to", "from": -2, "to": -7, "width": 1.0}, {"arrows": "to", "from": -7, "to": -7, "width": 1.0}, {"arrows": "to", "from": -7, "to": -8, "width": 1.0}, {"arrows": "to", "from": -8, "to": -9, "width": 1.0}, {"arrows": "to", "from": -9, "to": -8, "width": 1.0}, {"arrows": "to", "from": -8, "to": -8, "width": 1.0}, {"arrows": "to", "from": -8, "to": -7, "width": 1.0}, {"arrows": "to", "from": -7, "to": -6, "width": 2.0}, {"arrows": "to", "from": -6, "to": -5, "width": 1.0}, {"arrows": "to", "from": -6, "to": -7, "width": 1.0}, {"arrows": "to", "from": -6, "to": -6, "width": 1.0}, {"arrows": "to", "from": 0, "to": 7, "width": 1.0}, {"arrows": "to", "from": 4, "to": 7, "width": 1.0}, {"arrows": "to", "from": 7, "to": 5, "width": 1.0}, {"arrows": "to", "from": 5, "to": 5, "width": 1.0}, {"arrows": "to", "from": 7, "to": 2, "width": 1.0}, {"arrows": "to", "from": -5, "to": -5, "width": 1.0}, {"arrows": "to", "from": 5, "to": 1, "width": 1.0}, {"arrows": "to", "from": 2, "to": -3, "width": 1.0}, {"arrows": "to", "from": -3, "to": 3, "width": 1.0}]);
+
+        // adding nodes and edges to the graph
+        data = {nodes: nodes, edges: edges};
+
+        var options = {
+    "configure": {
+        "enabled": false
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": false,
+            "type": "continuous"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "enabled": true,
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+        
+        
+
+        
+
+        network = new vis.Network(container, data, options);
+
+        
+
+
+        
+
+        return network;
+
+    }
+
+    drawGraph();
+
+</script>
+</body>
+</html>
