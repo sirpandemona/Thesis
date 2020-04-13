@@ -1,0 +1,2 @@
+Guessing Entropy: 0
+Success Rate 0
