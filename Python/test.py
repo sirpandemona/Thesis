@@ -7,7 +7,7 @@ Created on Tue Mar 24 17:19:27 2020
 
 #!/bin/env python
 import math
-import dgl
+import import_traces
 
 x = 2*3*7
 print ("The answer of 2*3*7 = %d" % (x))

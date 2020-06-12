@@ -7,7 +7,7 @@ Created on Mon Mar 23 13:25:13 2020
 
 import pandas as pd
 import scipy.io
-import numpy as np
+
 
 sbox=(
     0x63,0x7c,0x77,0x7b,0xf2,0x6b,0x6f,0xc5,0x30,0x01,0x67,0x2b,0xfe,0xd7,0xab,0x76,
@@ -28,26 +28,45 @@ sbox=(
     0x8c,0xa1,0x89,0x0d,0xbf,0xe6,0x42,0x68,0x41,0x99,0x2d,0x0f,0xb0,0x54,0xbb,0x16) 
 
 
-def get_DPA_traces(path=r'C:\Users\vascodebruijn\Thesis_Data\student-datasets\DPAv4',hw=True ):
+def get_DPA_traces(count, path=r'C:\Users\vascodebruijn\Thesis_Data\\' ):
     
     """
     Gets traces from the DPA dataset
     count: indicates the amount of traces from each class which are to be returned; if count<0 return all traces available
     path: default folder
-    hw: Whether the full key, or the HW model of the key should be loaded
     """
     
-    traces_path = path+r'\traces\traces_complete_10000.npy'
-    keys_path = path+r'\Value\model.npy'
-    hw_keys_path = path+r'\HW\model_hw.npy'
+    info_path = path+r'dpav4_rsm_index.txt'
+    info_file = open(info_path,'r')
+    info_lines = info_file.readlines()
+
+    plaintxt = []
+    ciphertxt = []
+    shuffle0 =[]
+    shuffle10=[]
+    offset=[]
+    traces = []
+    keys = []
     
-    traces = np.load(traces_path, mmap_mode='r')
-    if (hw):
-        keys = np.load(hw_keys_path, mmap_mode='r')
+    if count > 0:
+        trace_ids = get_balancedTraces(info_lines, count)
     else:
-        keys = np.load(keys_path, mmap_mode='r')
+        trace_ids = range(0,1000)
         
-    return (traces,keys)
+    for idx in trace_ids:
+        #first extract the information
+        data = info_lines[idx].split()
+        keys.append(bytes.fromhex(data[0]))
+        plaintxt.append(bytes.fromhex(data[1]))
+        ciphertxt.append(bytes.fromhex(data[2]))
+
+        #then collect samples
+        sample_path = path+r'\Traces\trace%s' % idx
+        sample_file = open(sample_path,'r')
+        sample_data = sample_file.readlines()
+        traces.append(list(map(int,sample_data)))
+    
+    return(traces, keys, ciphertxt,plaintxt)
 
 def get_aes_hd(path = r'C:\Users\vascodebruijn\Documents\GitHub\AES_HD_Dataset\\'):
     
@@ -77,7 +96,6 @@ def get_delayed_traces(path = r'C:\Users\vascodebruijn\Documents\GitHub\randomde
     traces =data['CompressedTraces']
     return (traces, plaintxt)
     
-
 def get_balancedTraces(info_lines, count):
     
     """
