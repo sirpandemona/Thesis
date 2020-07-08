@@ -92,7 +92,7 @@ writeVarValues(varsFile, {'nTrain': nTrain,
    
 #Architecture params
 nFeatureBank = 2
-nClasses = 9
+nClasses = 256
 k = 3
 writeVarValues(varsFile, {'nFeatureBank': nFeatureBank,
                           'nClasses' : nClasses,
@@ -122,7 +122,7 @@ writeVarValues(varsFile, {'lossFunction': lossFunction,
                           })
     
 #get the data and transform it into a graph
-(traces, keys) = import_traces.get_DPA_traces(cluster,feat_red=True)
+(traces, keys) = import_traces.get_DPA_traces(cluster,feat_red=True, hw=False)
 keys=keys.flatten()
 G = gg.generate_graph(traces)
 (A,V) = G
@@ -176,6 +176,7 @@ lossTrain = thisTrainVars['lossTrain']
 costTrain = thisTrainVars['costTrain']
 lossValid = thisTrainVars['lossValid']
 costValid = thisTrainVars['costValid']
+evalVars = EdgeNetGNN.evaluate(data)
 
 #\\\ FIGURES DIRECTORY:
 saveDirFigs = os.path.join(saveDir,'figs')
@@ -185,7 +186,7 @@ if not os.path.exists(saveDirFigs):
     
 xAxisMultiplierTrain = 100 # How many training steps in between those shown in
     # the plot, i.e., one training step every xAxisMultiplierTrain is shown.
-xAxisMultiplierValid = 10 # How many validation steps in between those shown,
+xAxisMultiplierValid = 1 # How many validation steps in between those shown,
     # same as above.
 figSize = 5 # Overall size of the figure that contains the plot
 lineWidth = 2 # Width of the plot lines

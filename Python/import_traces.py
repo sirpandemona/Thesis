@@ -62,7 +62,8 @@ def get_DPA_traces(cluster,hw=True,feat_red=True ):
     
     traces = np.load(tp, mmap_mode='r')
     keys = np.load(kp, mmap_mode='r')
-        
+    keys = keys.astype('float32')    
+    
     return (traces,keys)
 
 def get_aes_hd(path = r'C:\Users\vascodebruijn\Documents\GitHub\AES_HD_Dataset\\'):
