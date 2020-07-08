@@ -32,14 +32,14 @@ class signal_data(Utils.dataTools._dataForClassification):
         assert nTrain+nValid+nTest <= self.nTotal, "Issue with splitting the dataset in test and train"
         
         X_train, X_tmp, y_train,y_tmp = train_test_split(x,y,train_size=nTrain)
-        X_test,X_valid,y_test,y_valid = train_test_split(X_tmp,y_tmp,train_size=nValid, test_size=nTest)
+        X_valid,X_test,y_valid,y_test = train_test_split(X_tmp,y_tmp,train_size=nValid, test_size=nTest)
         
-        self.samples['train']['signals'] = x[0:nTrain, :]
-        self.samples['train']['targets'] = y[0:nTrain]
-        self.samples['valid']['signals'] = x[nTrain:nTrain+nValid, :]
-        self.samples['valid']['targets']=y[nTrain:nTrain+nValid]
-        self.samples['test']['signals'] = x[nTrain+nValid:nTrain+nValid+nTest, :]
-        self.samples['test']['targets'] =y[nTrain+nValid:nTrain+nValid+nTest]
+        self.samples['train']['signals'] = X_train
+        self.samples['train']['targets'] = y_train
+        self.samples['valid']['signals'] = X_valid
+        self.samples['valid']['targets']= y_valid
+        self.samples['test']['signals'] = X_test
+        self.samples['test']['targets'] =y_test
         self.astype(torch.float64)
         
         self.samples['train']['targets'] = self.samples['train']['targets'].long()
