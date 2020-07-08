@@ -28,7 +28,7 @@ sbox=(
     0x8c,0xa1,0x89,0x0d,0xbf,0xe6,0x42,0x68,0x41,0x99,0x2d,0x0f,0xb0,0x54,0xbb,0x16) 
 
 
-def get_DPA_traces(path=r'C:\Users\vascodebruijn\Thesis_Data\student-datasets\DPAv4',hw=True ):
+def get_DPA_traces(cluster,hw=True,feat_red=True ):
     
     """
     Gets traces from the DPA dataset
@@ -36,16 +36,32 @@ def get_DPA_traces(path=r'C:\Users\vascodebruijn\Thesis_Data\student-datasets\DP
     path: default folder
     hw: Whether the full key, or the HW model of the key should be loaded
     """
-    
-    traces_path = path+r'\traces\traces_complete_10000.npy'
-    keys_path = path+r'\Value\model.npy'
-    hw_keys_path = path+r'\HW\model_hw.npy'
-    
-    traces = np.load(traces_path, mmap_mode='r')
-    if (hw):
-        keys = np.load(hw_keys_path, mmap_mode='r')
+    if cluster:
+        path=r'/home/nfs/vascodebruijn/thesis/DPAv4'
     else:
-        keys = np.load(keys_path, mmap_mode='r')
+        path=r'C:/Users/vascodebruijn/Thesis_Data/student-datasets\DPAv4'
+        
+    traces_path = r'%s/traces/traces_complete_10000.npy' % path
+    fr_traces_path = r'%s/traces/traces_50_Value.npy'% path
+    fr_hw_traces_path = r'%s/traces/traces_50_HW.npy'% path
+    
+    keys_path = r'%s/Value/model.npy'% path
+    hw_keys_path = r'%s/HW/model_hw.npy'% path
+    
+    kp = keys_path
+    tp = traces_path
+    
+    if(hw):
+        kp = hw_keys_path
+        
+    if(feat_red):
+        tp = fr_traces_path
+        
+    if(feat_red and hw):
+        tp = fr_hw_traces_path
+    
+    traces = np.load(tp, mmap_mode='r')
+    keys = np.load(kp, mmap_mode='r')
         
     return (traces,keys)
 

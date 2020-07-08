@@ -20,7 +20,7 @@
 #SBATCH --cpus-per-task=1
 
 # The default memory per node is 1024 megabytes (1GB) (for multiple tasks, specify --mem-per-cpu instead)
-#SBATCH --mem=4096
+#SBATCH --mem=8192
 
 # Set mail type to 'END' to receive a mail when the job finishes
 # Do not enable mails when submitting large numbers (>20) of jobs at once
@@ -40,5 +40,5 @@
 #cd /scratch/vascodebruijn/thesis
 source /home/nfs/vascodebruijn/thesis/test_env/bin/activate
 cd /home/nfs/vascodebruijn/thesis 
-srun python3 -u main.py > /home/nfs/vascodebruijn/thesis/test.out
+srun python3 -u test.py > /home/nfs/vascodebruijn/thesis/test.out
 deactivate
