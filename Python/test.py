@@ -73,7 +73,7 @@ with open(varsFile, 'w+') as file:
 nTrain = 8000
 nValid = 1000
 nTest = 1000
-nEpochs = 20 # Number of epochs
+nEpochs = 100 # Number of epochs
 batchSize = 20 # Batch size
 validationInterval = 1000 # How many training steps to do the validation
 trainingOptions = {} 
@@ -92,7 +92,7 @@ writeVarValues(varsFile, {'nTrain': nTrain,
    
 #Architecture params
 nFeatureBank = 2
-nClasses = 256
+nClasses = 9
 k = 3
 writeVarValues(varsFile, {'nFeatureBank': nFeatureBank,
                           'nClasses' : nClasses,
@@ -122,7 +122,7 @@ writeVarValues(varsFile, {'lossFunction': lossFunction,
                           })
     
 #get the data and transform it into a graph
-(traces, keys) = import_traces.get_DPA_traces(cluster,feat_red=True, hw=False)
+(traces, keys) = import_traces.get_DPA_traces(cluster,feat_red=True, hw=True)
 keys=keys.flatten()
 G = gg.generate_graph(traces)
 (A,V) = G
@@ -137,6 +137,7 @@ nonlinearity = nn.ReLU
 dimNodeSignals =[1, nFeatureBank, nFeatureBank]
 dimLayersMLP= [nClasses]
 nShiftTaps =[k, k]
+nFilterTaps = [k, k]
 nFilterNodes = [40, 40]
 GSO = A
 
@@ -153,30 +154,38 @@ poolingSize=[nFeatures, nFeatures]
 
 #Put all the vars in the codestuff
 EdgeNet = archit.EdgeVariantGNN(dimNodeSignals, nShiftTaps,nFilterNodes,bias,nonlinearity,nSelectedNodes,Utils.graphML.NoPool,poolingSize,dimLayersMLP, GSO)
+ConvNet = archit.SelectionGNN(dimNodeSignals, nFilterTaps, bias, nonlinearity,nSelectedNodes,Utils.graphML.NoPool, poolingSize,dimLayersMLP,GSO)
 
-EdgeNet.to(device)
+chosen_arch = 'ConvNet'
+architectures = {}
+architectures['EdgeNet'] = EdgeNet
+architectures['ConvNet'] = ConvNet
+netArch = architectures[chosen_arch]
+
+
+netArch.to(device)
 thisOptim = optim.Adam(EdgeNet.parameters(), lr = learningRate, betas = (beta1,beta2))
 
-EdgeNetGNN = model.Model(EdgeNet,
+GNNModel = model.Model(netArch,
                      lossFunction(),
                      thisOptim,
                      trainer,
                      evaluator,
                      device,
-                     "EdgeNet",
+                     chosen_arch,
                      'test') 
 
 #writer.add_graph(EdgeNet,data.samples['train']['signals'])
 #writer.close()
 
 print("Start Training")
-thisTrainVars = EdgeNetGNN.train(data, nEpochs, batchSize, **trainingOptions)
+thisTrainVars = GNNModel.train(data, nEpochs, batchSize, **trainingOptions)
 
 lossTrain = thisTrainVars['lossTrain']
 costTrain = thisTrainVars['costTrain']
 lossValid = thisTrainVars['lossValid']
 costValid = thisTrainVars['costValid']
-evalVars = EdgeNetGNN.evaluate(data)
+evalVars = GNNModel.evaluate(data)
 
 #\\\ FIGURES DIRECTORY:
 saveDirFigs = os.path.join(saveDir,'figs')

@@ -1,0 +1,27 @@
+2020/07/27 13:06:24
+
+nTrain = 8000
+nValid = 1000
+nTest = 1000
+nEpochs = 100
+batchSize = 20
+validationInterval = 1000
+
+nFeatureBank = 2
+nClasses = 9
+k = 3
+
+lossFunction = <class 'torch.nn.modules.loss.CrossEntropyLoss'>
+OptimAlg = ADAM
+learningRate = 0.001
+beta1 = 0.9
+beta2 = 0.999
+device = cpu
+
+bias = False
+nonlinearity = <class 'torch.nn.modules.activation.ReLU'>
+dimNodeSignals = [1, 2, 2]
+nShiftTaps = [3, 3]
+nFilterNodes = [40, 40]
+dimLayersMLP = [9]
+
