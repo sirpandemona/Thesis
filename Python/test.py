@@ -68,17 +68,38 @@ varsFile = os.path.join(saveDir,'hyperparameters.txt')
 with open(varsFile, 'w+') as file:
     file.write('%s\n\n' % datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"))
 
+#Hyperparams
+nFeatureBank = 2
+k = 3
+nLayers = 2 
+fr = True
+cr = True
+dataset = "dpa4"
+chosen_arch = 'ConvNet'
 
-#init the training params
+if (cr):
+    nClasses = 9
+else:
+    nclasses = 256
+    
+writeVarValues(varsFile, {'nFeatureBank': nFeatureBank,
+                          'nClasses' : nClasses,
+                          'k' : k,
+                          'nLayers': nLayers,
+                          'Feature Reduction': fr,
+                          'Class Reduction' : cr,
+                          'Used Architecture': chosen_arch
+                          })
+#training params
 nTrain = 8000
-nValid = 1000
+nValid = 5
 nTest = 1000
 nEpochs = 100 # Number of epochs
-batchSize = 20 # Batch size
+batchSize = 5 # Batch size
 validationInterval = 1000 # How many training steps to do the validation
 trainingOptions = {} 
 printInterval = 500
-
+   
 trainingOptions['saveDir'] = saveDir
 trainingOptions['printInterval'] = printInterval
 trainingOptions['validationInterval'] = validationInterval
@@ -90,14 +111,7 @@ writeVarValues(varsFile, {'nTrain': nTrain,
                           'batchSize': batchSize,
                           'validationInterval': validationInterval})
    
-#Architecture params
-nFeatureBank = 2
-nClasses = 9
-k = 3
-writeVarValues(varsFile, {'nFeatureBank': nFeatureBank,
-                          'nClasses' : nClasses,
-                          'k' : k
-                          })
+
 #Moar training params
 lossFunction = nn.CrossEntropyLoss
 optimAlg = 'ADAM'
@@ -122,8 +136,7 @@ writeVarValues(varsFile, {'lossFunction': lossFunction,
                           })
     
 #get the data and transform it into a graph
-(traces, keys) = import_traces.get_DPA_traces(cluster,feat_red=True, hw=True)
-keys=keys.flatten()
+(traces, keys) = import_traces.import_traces(cluster,cr,fr, dataset)
 G = gg.generate_graph(traces)
 (A,V) = G
 
@@ -136,9 +149,9 @@ bias = False
 nonlinearity = nn.ReLU
 dimNodeSignals =[1, nFeatureBank, nFeatureBank]
 dimLayersMLP= [nClasses]
-nShiftTaps =[k, k]
-nFilterTaps = [k, k]
-nFilterNodes = [40, 40]
+nShiftTaps =[k] * nLayers
+nFilterTaps = [k] * nLayers
+nFilterNodes = [5] * nLayers
 GSO = A
 
 writeVarValues(varsFile, {'bias': bias,
@@ -149,14 +162,14 @@ writeVarValues(varsFile, {'bias': bias,
                           'dimLayersMLP': dimLayersMLP,
                           })
 #pooling stuff
+poolingFn = Utils.graphML.NoPool
 nSelectedNodes= [nFeatures, nFeatures] 
 poolingSize=[nFeatures, nFeatures]
 
 #Put all the vars in the codestuff
-EdgeNet = archit.EdgeVariantGNN(dimNodeSignals, nShiftTaps,nFilterNodes,bias,nonlinearity,nSelectedNodes,Utils.graphML.NoPool,poolingSize,dimLayersMLP, GSO)
-ConvNet = archit.SelectionGNN(dimNodeSignals, nFilterTaps, bias, nonlinearity,nSelectedNodes,Utils.graphML.NoPool, poolingSize,dimLayersMLP,GSO)
+EdgeNet = archit.EdgeVariantGNN(dimNodeSignals, nShiftTaps,nFilterNodes,bias,nonlinearity,nSelectedNodes,poolingFn,poolingSize,dimLayersMLP, GSO)
+ConvNet = archit.SelectionGNN(dimNodeSignals, nFilterTaps, bias, nonlinearity,nSelectedNodes,poolingFn, poolingSize,dimLayersMLP,GSO)
 
-chosen_arch = 'ConvNet'
 architectures = {}
 architectures['EdgeNet'] = EdgeNet
 architectures['ConvNet'] = ConvNet

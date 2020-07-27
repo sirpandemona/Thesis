@@ -1,7 +1,7 @@
-2020/07/27 13:45:08
+2020/07/27 14:01:59
 
 nTrain = 8000
-nValid = 1000
+nValid = 5
 nTest = 1000
 nEpochs = 100
 batchSize = 5

@@ -1,15 +1,19 @@
-2020/07/27 13:45:08
-
-nTrain = 8000
-nValid = 1000
-nTest = 1000
-nEpochs = 100
-batchSize = 5
-validationInterval = 1000
+2020/07/27 17:27:50
 
 nFeatureBank = 2
 nClasses = 9
 k = 3
+nLayers = 2
+Feature Reduction = True
+Class Reduction = True
+Used Architecture = ConvNet
+
+nTrain = 8000
+nValid = 5
+nTest = 1000
+nEpochs = 100
+batchSize = 5
+validationInterval = 1000
 
 lossFunction = <class 'torch.nn.modules.loss.CrossEntropyLoss'>
 OptimAlg = ADAM
@@ -22,6 +26,6 @@ bias = False
 nonlinearity = <class 'torch.nn.modules.activation.ReLU'>
 dimNodeSignals = [1, 2, 2]
 nShiftTaps = [3, 3]
-nFilterNodes = [40, 40]
+nFilterNodes = [5, 5]
 dimLayersMLP = [9]
 
