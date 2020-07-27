@@ -73,7 +73,7 @@ with open(varsFile, 'w+') as file:
 nTrain = 8000
 nValid = 1000
 nTest = 1000
-nEpochs = 50 # Number of epochs
+nEpochs = 20 # Number of epochs
 batchSize = 20 # Batch size
 validationInterval = 1000 # How many training steps to do the validation
 trainingOptions = {} 
