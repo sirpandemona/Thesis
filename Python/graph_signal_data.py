@@ -7,7 +7,7 @@ Created on Tue Jun 30 12:58:55 2020
 import sys
 import os
 import torch
-cluster = True
+cluster = os.getcwd() != 'C:\\Users\\vascodebruijn\\Documents\\GitHub\\Thesis\\Python'
 module_path = os.path.abspath(os.path.join('..'))
 if cluster:
     sys.path.insert(1, '\\home\\nfs\\vascodebruijn\\graph-neural-networks-networks')
@@ -54,4 +54,4 @@ class signal_data(Utils.dataTools._dataForClassification):
         y_t = torch.reshape(y, (-1,1))
         (_,pos) = torch.where(guessing_vector == y_t)
         GE = torch.mean(pos.float())
-        return GE
+        return int(GE)

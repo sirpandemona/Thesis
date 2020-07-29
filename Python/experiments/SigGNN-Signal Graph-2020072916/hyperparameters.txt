@@ -1,0 +1,19 @@
+16:28:35
+
+nFeatureBank = 2
+nClasses = 9
+k = 3
+nLayers = 2
+Feature Reduction = True
+Class Reduction = True
+Used Architecture = ConvNet
+Edge Function = Threshold Correlation
+EdgeFn Threshold = 0.5
+
+Runtime = 663.7207438589994
+
+costBest = 0.995
+costLast = 0.995
+GE_best = [tensor(3.9790, dtype=torch.float32), tensor(4.0020, dtype=torch.float32), tensor(3.9818, dtype=torch.float32), tensor(3.9350, dtype=torch.float32), tensor(3.9086, dtype=torch.float32), tensor(3.9202, dtype=torch.float32), tensor(3.9568, dtype=torch.float32), tensor(3.9504, dtype=torch.float32), tensor(3.9720, dtype=torch.float32), tensor(3.8958, dtype=torch.float32)]
+GE_last = [tensor(3.9790, dtype=torch.float32), tensor(3.9498, dtype=torch.float32), tensor(3.9544, dtype=torch.float32), tensor(3.9593, dtype=torch.float32), tensor(3.9492, dtype=torch.float32), tensor(3.9080, dtype=torch.float32), tensor(3.9496, dtype=torch.float32), tensor(3.9504, dtype=torch.float32), tensor(3.9346, dtype=torch.float32), tensor(3.9271, dtype=torch.float32)]
+

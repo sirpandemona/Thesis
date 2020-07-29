@@ -11,25 +11,29 @@ import sys
 import os
 import torch
 import pickle
-cluster = True
+import random
+from itertools import zip_longest
+
+cluster = os.getcwd() != 'C:\\Users\\vascodebruijn\\Documents\\GitHub\\Thesis\\Python'
 module_path = os.path.abspath(os.path.join('..'))
 if cluster:
     sys.path.insert(1, '\\home\\nfs\\vascodebruijn\\graph-neural-networks-networks')
 else:    
     sys.path.insert(1, 'C:\\Users\\vascodebruijn\\Documents\\GitHub\\graph-neural-networks')
 
-def generate_graph(x):
+def generate_graph(x,edge_fn):
     """
     Generates graph used for graph signal classification
     Params:
         x: Traces in np-format (num_traces*num_features)
+        edge_fn: method which is used to generate the edges\adj. matrix
     Returns:
         A: adjacency matrix representing the edges
         V: number of vertixes (A=V*V)  
     """
     
     (_,V) = x.shape
-    A = seq_connection(x)
+    A = edge_fn(x)
     
     return (A,V)
     
@@ -97,6 +101,22 @@ def corr_knn_connection(x,k):
         A[i, top] =1
     return A  
 
+def get_edge_fn(fn_name,threshold):
+    """
+    gets the actual python function for the edge generation method
+    name: name of the edge generation method
+    """
+    seq_fn = seq_connection
+    corr_thresh_fn = lambda x: corr_tresh_connection(x,threshold)
+    corr_knn_fn = lambda x: corr_tresh_connection(x,threshold)
+    
+    edge_dic = {
+        "Successive": seq_fn,
+        "Threshold Correlation" : corr_thresh_fn,
+        "KNN Correlation": corr_knn_fn
+        }
+    return edge_dic[fn_name]
+    
 def evaluateGE(model, data, **kwargs):
     """
     evaluate: evaluate a model using classification error and guessing entropy
@@ -141,7 +161,8 @@ def evaluateGE(model, data, **kwargs):
         #   testSize x numberOfClasses
         # We compute the error
         costBest = data.evaluate(yHatTest, yTest)
-        GE_best = data.evaluate_GE(yHatTest,yTest)
+        #GE_best = data.evaluate_GE(yHatTest,yTest)
+        GE_best = evaluate_traces(yHatTest,yTest,10,data)
     ##############
     # LAST MODEL #
     ##############
@@ -155,7 +176,7 @@ def evaluateGE(model, data, **kwargs):
         #   testSize x numberOfClasses
         # We compute the error
         costLast = data.evaluate(yHatTest, yTest)
-        GE_last =data.evaluate_GE(yHatTest,yTest)
+        GE_last =evaluate_traces(yHatTest,yTest,10,data)
 
     evalVars = {}
     evalVars['costBest'] = costBest.item()
@@ -173,4 +194,54 @@ def evaluateGE(model, data, **kwargs):
 
     return evalVars    
          
+def evaluate_traces(probs,y,n,data):
+    """
+    Calculates the guessing entropy for different amount of traces
+    probs: probabilities of each key for each input
+    y: array of correct keys
+    n: max amount of traces to evaluate
+    """
+    results = []
+    for i in range(1,n+1):
+        (comb_probs, keys) = combine_traces(probs,y,i)
+        GE = data.evaluate_GE(comb_probs,keys)
+        results.append(GE)
+    return results
+       
+def combine_traces(probs, y, n):            
+    """
+    Calculate the key guessing vector over multimple samples
+    probs: probabilities of each key for each input
+    y: array of correct keys
+    n: amount of traces
+    """  
     
+    grouped_props = {}
+    
+    for i in range(len(y)):
+        label = int(y[i])
+        if not label in grouped_props:
+            grouped_props[label] = []
+        grouped_props[label].append(probs[i])
+    
+    combined_probs=[]
+    combined_y = []
+    
+    for label in grouped_props:
+        random.shuffle(grouped_props[label])
+        for prob_slice in grouper(n,grouped_props[label]):
+            ps = list(prob_slice)
+            ll = torch.sum(torch.log_softmax(torch.stack(ps),1),axis=0)
+            combined_probs.append(ll)
+            combined_y.append(label)
+            
+    return (torch.stack(combined_probs), torch.tensor(combined_y))    
+
+def grouper(n, iterable, fillvalue=None):
+    "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
+    tail = len(iterable) % n
+    if tail > 0:
+        iterable = iterable[:len(iterable)-tail]
+     
+    args = [iter(iterable)] * n
+    return zip_longest(fillvalue=fillvalue, *args)

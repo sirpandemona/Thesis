@@ -4,7 +4,6 @@ Created on Tue Jun 23 13:54:28 2020
 
 @author: vascodebruijn
 """
-cluster = False
 
 import numpy as np
 import matplotlib
@@ -15,10 +14,11 @@ import matplotlib.pyplot as plt
 import sys
 import os
 import datetime
-
+import time
 import torch; torch.set_default_dtype(torch.float64)
 import torch.nn as nn
 import torch.optim as optim
+cluster = os.getcwd() != 'C:\\Users\\vascodebruijn\\Documents\\GitHub\\Thesis\\Python'
 
 #import Albertos lib
 module_path = os.path.abspath(os.path.join('..'))
@@ -50,7 +50,7 @@ if module_path not in sys.path:
 import import_traces
 import graph_generation as gg
 import graph_signal_data as gsd
-
+import utils
 #File handling 
 graphType = 'Signal Graph' # Type of graph
 thisFilename = 'SigGNN' # This is the general name of all related files
@@ -76,23 +76,18 @@ fr = True
 cr = True
 dataset = "dpa4"
 chosen_arch = 'ConvNet'
-
+edge_function = "Threshold Correlation"
+threshold = 0.5
+edge_fn = gg.get_edge_fn(edge_function,threshold)
 if (cr):
     nClasses = 9
 else:
     nclasses = 256
     
-writeVarValues(varsFile, {'nFeatureBank': nFeatureBank,
-                          'nClasses' : nClasses,
-                          'k' : k,
-                          'nLayers': nLayers,
-                          'Feature Reduction': fr,
-                          'Class Reduction' : cr,
-                          'Used Architecture': chosen_arch
-                          })
+
 #training params
 nTrain = 8000
-nValid = 5
+nValid = 1000
 nTest = 1000
 nEpochs = 100 # Number of epochs
 batchSize = 5 # Batch size
@@ -137,7 +132,8 @@ writeVarValues(varsFile, {'lossFunction': lossFunction,
     
 #get the data and transform it into a graph
 (traces, keys) = import_traces.import_traces(cluster,cr,fr, dataset)
-G = gg.generate_graph(traces)
+G = gg.generate_graph(traces,edge_fn)
+
 (A,V) = G
 
 #create datamodel to use in GNN framework
@@ -188,62 +184,30 @@ GNNModel = model.Model(netArch,
                      chosen_arch,
                      'test') 
 
-#writer.add_graph(EdgeNet,data.samples['train']['signals'])
-#writer.close()
-
 print("Start Training")
-thisTrainVars = GNNModel.train(data, nEpochs, batchSize, **trainingOptions)
 
-lossTrain = thisTrainVars['lossTrain']
-costTrain = thisTrainVars['costTrain']
-lossValid = thisTrainVars['lossValid']
-costValid = thisTrainVars['costValid']
+
+writeVarValues(varsFile, {'nFeatureBank': nFeatureBank,
+                          'nClasses' : nClasses,
+                          'k' : k,
+                          'nLayers': nLayers,
+                          'Feature Reduction': fr,
+                          'Class Reduction' : cr,
+                          'Used Architecture': chosen_arch,
+                          'Edge Function': edge_function,
+                          'EdgeFn Threshold': threshold
+                          })
+
+start = time.perf_counter()
+
+thisTrainVars = GNNModel.train(data, nEpochs, batchSize, **trainingOptions)
 evalVars = GNNModel.evaluate(data)
 
-#\\\ FIGURES DIRECTORY:
-saveDirFigs = os.path.join(saveDir,'figs')
-# If it doesn't exist, create it.
-if not os.path.exists(saveDirFigs):
-    os.makedirs(saveDirFigs)
+finish = time.perf_counter()
+runtime = finish-start
     
-xAxisMultiplierTrain = 100 # How many training steps in between those shown in
-    # the plot, i.e., one training step every xAxisMultiplierTrain is shown.
-xAxisMultiplierValid = 1 # How many validation steps in between those shown,
-    # same as above.
-figSize = 5 # Overall size of the figure that contains the plot
-lineWidth = 2 # Width of the plot lines
-markerShape = 'o' # Shape of the markers
-markerSize = 3 # Size of the markers    
+writeVarValues(varsFile, {'Runtime':runtime})    
+writeVarValues(varsFile, evalVars)    
 
-nBatches = thisTrainVars['nBatches']
+utils.make_fig(thisTrainVars, saveDir,nEpochs, validationInterval)
 
-# Compute the x-axis
-xTrain = np.arange(0, nEpochs * nBatches, xAxisMultiplierTrain)
-xValid = np.arange(0, nEpochs * nBatches, \
-                      validationInterval*xAxisMultiplierValid)
-
-if xAxisMultiplierTrain > 1:
-    # Actual selected samples
-    selectSamplesTrain = xTrain
-    # Go and fetch tem
-    lossTrain = lossTrain[selectSamplesTrain]
-    costTrain = costTrain[selectSamplesTrain]
-# And same for the validation, if necessary.
-if xAxisMultiplierValid > 1:
-    selectSamplesValid = np.arange(0, len(lossValid), \
-                                   xAxisMultiplierValid)
-    lossValid = lossValid[selectSamplesValid]
-    costValid = costValid[selectSamplesValid]
-
-costFig = plt.figure(figsize=(1.61*figSize, 1*figSize))
-plt.plot(xTrain, costTrain,color='#01256E',linewidth = lineWidth,
-             marker = markerShape, markersize = markerSize )
-plt.plot(xValid,costValid,color = '#95001A',linewidth = lineWidth,
-             marker = markerShape, markersize = markerSize)
-
-plt.ylabel(r'Error rate')
-plt.xlabel(r'Training steps')
-plt.legend([r'Training', r'Validation'])
-plt.title(r'Results')
-costFig.savefig(os.path.join(saveDirFigs,'eval.pdf'),
-                    bbox_inches = 'tight')
