@@ -1,10 +1,10 @@
-2020/08/04 14:46:27
+2020/08/04 12:36:12
 
 nTrain = 8000
 nValid = 100
 nTest = 1000
 nEpochs = 100
-batchSize = 200
+batchSize = 100
 validationInterval = 1000
 
 lossFunction = <class 'torch.nn.modules.loss.CrossEntropyLoss'>

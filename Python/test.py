@@ -40,7 +40,7 @@ import Modules.loss as loss
 
 from Utils.miscTools import writeVarValues
 from Utils.miscTools import saveSeed
-from torch.utils.tensorboard import SummaryWriter
+#from torch.utils.tensorboard import SummaryWriter
 
 
 #import own stuff
@@ -63,34 +63,20 @@ saveDir = saveDir + '-' + graphType + '-' + today
 if not os.path.exists(saveDir):
     os.makedirs(saveDir)
     
-#save hyperparams    
+#save params    
 varsFile = os.path.join(saveDir,'hyperparameters.txt')
 with open(varsFile, 'w+') as file:
     file.write('%s\n\n' % datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"))
 
-#Hyperparams
-nFeatureBank = 2
-k = 3
-nLayers = 2 
-fr = True
-cr = True
-dataset = "dpa4"
-chosen_arch = 'ConvNet'
-edge_function = "Threshold Correlation"
-threshold = 0.5
-edge_fn = gg.get_edge_fn(edge_function,threshold)
-if (cr):
-    nClasses = 9
-else:
-    nclasses = 256
+
     
 
 #training params
 nTrain = 8000
-nValid = 1000
-nTest = 1000
+nValid = 100
+nTest = 100
 nEpochs = 100 # Number of epochs
-batchSize = 5 # Batch size
+batchSize = 100 # Batch size
 validationInterval = 1000 # How many training steps to do the validation
 trainingOptions = {} 
 printInterval = 500
@@ -129,85 +115,234 @@ writeVarValues(varsFile, {'lossFunction': lossFunction,
                           'beta2': beta2,
                           'device': device,
                           })
-    
-#get the data and transform it into a graph
-(traces, keys) = import_traces.import_traces(cluster,cr,fr, dataset)
-G = gg.generate_graph(traces,edge_fn)
+  
+#Hyperparams
+hyperparam_settings =[]
+hyperparams_base =  {'F': 4,
+                          'nClasses' : 9,
+                          'k' : 2,
+                          'nLayers': 3,
+                          'Feature Reduction': True,
+                          'Class Reduction' : True,
+                          'Used Architecture': 'ConvNet',
+                          'Edge Function': "Successive",
+                          'EdgeFn Threshold': 0.5,
+                          'dataset': 'dpa4'
+                          }
+hyperparam_settings.append(hyperparams_base)
 
-(A,V) = G
+candidateF = [8,12,16,20,24]
+candidateL = [2,3,4]
+candidateK = [2,3,4,5]
+candidateFn= [("Threshold Correlation",0.8),("Threshold Correlation",0.5),("Threshold Correlation",0.2),("Successive",0.5),("KNN Correlation",1),("KNN Correlation",2),("KNN Correlation",4),("KNN Correlation",8)]
 
-#create datamodel to use in GNN framework
-data = gsd.signal_data(traces.copy(),keys.copy(),G,nTrain,nValid,nTest )
-(nTraces,nFeatures) = traces.shape
+candidateFn= [("Successive",0.5)]
 
-#Moar architecture params
-bias = False 
-nonlinearity = nn.ReLU
-dimNodeSignals =[1, nFeatureBank, nFeatureBank]
-dimLayersMLP= [nClasses]
-nShiftTaps =[k] * nLayers
-nFilterTaps = [k] * nLayers
-nFilterNodes = [5] * nLayers
-GSO = A
+results = np.zeros([len(candidateF,len(candidateL),len(candidateK),len(candidateFn))])
 
-writeVarValues(varsFile, {'bias': bias,
-                          'nonlinearity' : nonlinearity,
-                          'dimNodeSignals': dimNodeSignals,
-                          'nShiftTaps': nShiftTaps,
-                          'nFilterNodes': nFilterNodes,
-                          'dimLayersMLP': dimLayersMLP,
+for F  in candidateF:
+    for L in candidateL:
+        for K in candidateK:
+            for efn in candidateFn:
+                (fn,c) = efn
+                hyperparam_settings.append({'F': F,
+                          'nClasses' : 9,
+                          'k' : K,
+                          'nLayers': L,
+                          'Feature Reduction': True,
+                          'Class Reduction' : True,
+                          'Used Architecture': 'ConvNet',
+                          'Edge Function': fn,
+                          'EdgeFn Threshold': c,
+                          'dataset': 'dpa4'
                           })
-#pooling stuff
-poolingFn = Utils.graphML.NoPool
-nSelectedNodes= [nFeatures, nFeatures] 
-poolingSize=[nFeatures, nFeatures]
-
-#Put all the vars in the codestuff
-EdgeNet = archit.EdgeVariantGNN(dimNodeSignals, nShiftTaps,nFilterNodes,bias,nonlinearity,nSelectedNodes,poolingFn,poolingSize,dimLayersMLP, GSO)
-ConvNet = archit.SelectionGNN(dimNodeSignals, nFilterTaps, bias, nonlinearity,nSelectedNodes,poolingFn, poolingSize,dimLayersMLP,GSO)
-
-architectures = {}
-architectures['EdgeNet'] = EdgeNet
-architectures['ConvNet'] = ConvNet
-netArch = architectures[chosen_arch]
-
-
-netArch.to(device)
-thisOptim = optim.Adam(EdgeNet.parameters(), lr = learningRate, betas = (beta1,beta2))
-
-GNNModel = model.Model(netArch,
-                     lossFunction(),
-                     thisOptim,
-                     trainer,
-                     evaluator,
-                     device,
-                     chosen_arch,
-                     'test') 
-
-print("Start Training")
-
-
-writeVarValues(varsFile, {'nFeatureBank': nFeatureBank,
-                          'nClasses' : nClasses,
-                          'k' : k,
-                          'nLayers': nLayers,
-                          'Feature Reduction': fr,
-                          'Class Reduction' : cr,
-                          'Used Architecture': chosen_arch,
-                          'Edge Function': edge_function,
-                          'EdgeFn Threshold': threshold
+#diff k
+'''
+hyperparam_settings.append( {'F': 2,
+                          'nClasses' : 9,
+                          'k' : 2,
+                          'nLayers': 2,
+                          'Feature Reduction': True,
+                          'Class Reduction' : True,
+                          'Used Architecture': 'ConvNet',
+                          'Edge Function': "Threshold Correlation",
+                          'EdgeFn Threshold': 0.5,
+                          'dataset': 'dpa4'
                           })
-
-start = time.perf_counter()
-
-thisTrainVars = GNNModel.train(data, nEpochs, batchSize, **trainingOptions)
-evalVars = GNNModel.evaluate(data)
-
-finish = time.perf_counter()
-runtime = finish-start
+hyperparam_settings.append( {'F': 2,
+                          'nClasses' : 9,
+                          'k' : 1,
+                          'nLayers': 2,
+                          'Feature Reduction': True,
+                          'Class Reduction' : True,
+                          'Used Architecture': 'ConvNet',
+                          'Edge Function': "Threshold Correlation",
+                          'EdgeFn Threshold': 0.5,
+                          'dataset': 'dpa4'
+                          })
+hyperparam_settings.append( {'F': 2,
+                          'nClasses' : 9,
+                          'k' : 4,
+                          'nLayers': 2,
+                          'Feature Reduction': True,
+                          'Class Reduction' : True,
+                          'Used Architecture': 'ConvNet',
+                          'Edge Function': "Threshold Correlation",
+                          'EdgeFn Threshold': 0.5,
+                          'dataset': 'dpa4'
+                          })
+hyperparam_settings.append( {'F': 2,
+                          'nClasses' : 9,
+                          'k' : 5,
+                          'nLayers': 2,
+                          'Feature Reduction': True,
+                          'Class Reduction' : True,
+                          'Used Architecture': 'ConvNet',
+                          'Edge Function': "Threshold Correlation",
+                          'EdgeFn Threshold': 0.5,
+                          'dataset': 'dpa4'
+                          })
+#diff F
+hyperparam_settings.append( {'F': 1,
+                          'nClasses' : 9,
+                          'k' : 3,
+                          'nLayers': 2,
+                          'Feature Reduction': True,
+                          'Class Reduction' : True,
+                          'Used Architecture': 'ConvNet',
+                          'Edge Function': "Threshold Correlation",
+                          'EdgeFn Threshold': 0.5,
+                          'dataset': 'dpa4'
+                          })
+hyperparam_settings.append( {'F': 3,
+                          'nClasses' : 9,
+                          'k' : 3,
+                          'nLayers': 2,
+                          'Feature Reduction': True,
+                          'Class Reduction' : True,
+                          'Used Architecture': 'ConvNet',
+                          'Edge Function': "Threshold Correlation",
+                          'EdgeFn Threshold': 0.5,
+                          'dataset': 'dpa4'
+                          })
+hyperparam_settings.append( {'F': 4,
+                          'nClasses' : 9,
+                          'k' : 3,
+                          'nLayers': 2,
+                          'Feature Reduction': True,
+                          'Class Reduction' : True,
+                          'Used Architecture': 'ConvNet',
+                          'Edge Function': "Threshold Correlation",
+                          'EdgeFn Threshold': 0.5,
+                          'dataset': 'dpa4'
+                          })
+#diff layers
+hyperparam_settings.append( {'F': 2,
+                          'nClasses' : 9,
+                          'k' : 3,
+                          'nLayers': 3,
+                          'Feature Reduction': True,
+                          'Class Reduction' : True,
+                          'Used Architecture': 'ConvNet',
+                          'Edge Function': "Threshold Correlation",
+                          'EdgeFn Threshold': 0.5,
+                          'dataset': 'dpa4'
+                          })
+'''
+for hyperparams in hyperparam_settings:
+    nFeatureBank = hyperparams['F']
+    k = hyperparams['k']
+    nLayers =  hyperparams['nLayers']
+    fr = hyperparams['Feature Reduction']
+    cr = hyperparams['Class Reduction']
+    dataset = hyperparams['dataset']
+    chosen_arch = hyperparams['Used Architecture']
+    edge_function = hyperparams['Edge Function']
+    threshold = hyperparams['EdgeFn Threshold']
+    edge_fn = gg.get_edge_fn(edge_function,threshold)
+    if (cr):
+        nClasses = 9
+    else:
+        nclasses = 256
+      
+    #get the data and transform it into a graph
+    (traces, keys) = import_traces.import_traces(cluster,cr,fr, dataset)
+    G = gg.generate_graph(traces,edge_fn)
     
-writeVarValues(varsFile, {'Runtime':runtime})    
-writeVarValues(varsFile, evalVars)    
+    (A,V) = G
+    
+    #create datamodel to use in GNN framework
+    data = gsd.signal_data(traces.copy(),keys.copy(),G,nTrain,nValid,nTest )
+    (nTraces,nFeatures) = traces.shape
+    
+    #Moar architecture params
+    bias = False 
+    nonlinearity = nn.ReLU
+    dimNodeSignals =[1] + [nFeatureBank]*nLayers
+    dimLayersMLP= [nClasses]
+    nShiftTaps =[k] * nLayers
+    nFilterTaps = [k] * nLayers
+    nFilterNodes = [5] * nLayers
+    GSO = A
+    
+    writeVarValues(varsFile, {'bias': bias,
+                              'nonlinearity' : nonlinearity,
+                              'dimNodeSignals': dimNodeSignals,
+                              'nShiftTaps': nShiftTaps,
+                              'nFilterNodes': nFilterNodes,
+                              'dimLayersMLP': dimLayersMLP,
+                              })
+    #pooling stuff
+    poolingFn = Utils.graphML.NoPool
+    nSelectedNodes= [nFeatures] *nLayers
+    poolingSize=[nFeatures]*nLayers
+    
+    #Put all the vars in the codestuff
+    EdgeNet = archit.EdgeVariantGNN(dimNodeSignals, nShiftTaps,nFilterNodes,bias,nonlinearity,nSelectedNodes,poolingFn,poolingSize,dimLayersMLP, GSO)
+    ConvNet = archit.SelectionGNN(dimNodeSignals, nFilterTaps, bias, nonlinearity,nSelectedNodes,poolingFn, poolingSize,dimLayersMLP,GSO)
+    
+    architectures = {}
+    architectures['EdgeNet'] = EdgeNet
+    architectures['ConvNet'] = ConvNet
+    netArch = architectures[chosen_arch]
+    
+    
+    netArch.to(device)
+    thisOptim = optim.Adam(EdgeNet.parameters(), lr = learningRate, betas = (beta1,beta2))
+    
+    GNNModel = model.Model(netArch,
+                         lossFunction(),
+                         thisOptim,
+                         trainer,
+                         evaluator,
+                         device,
+                         chosen_arch,
+                         'test') 
+    
+    print("Start Training")
+    
+    
+    writeVarValues(varsFile, {'nFeatureBank': nFeatureBank,
+                              'nClasses' : nClasses,
+                              'k' : k,
+                              'nLayers': nLayers,
+                              'Feature Reduction': fr,
+                              'Class Reduction' : cr,
+                              'Used Architecture': chosen_arch,
+                              'Edge Function': edge_function,
+                              'EdgeFn Threshold': threshold
+                              })
+    
+    start = time.perf_counter()
+    
+    thisTrainVars = GNNModel.train(data, nEpochs, batchSize, **trainingOptions)
+    evalVars = GNNModel.evaluate(data)
+    
+    finish = time.perf_counter()
+    runtime = finish-start
+        
+    writeVarValues(varsFile, {'Runtime':runtime})    
+    writeVarValues(varsFile, evalVars)    
 
-utils.make_fig(thisTrainVars, saveDir,nEpochs, validationInterval)
+#utils.make_fig(thisTrainVars, saveDir,nEpochs, validationInterval)
 

@@ -1,10 +1,10 @@
-2020/08/04 14:46:27
+2020/08/03 17:45:32
 
 nTrain = 8000
 nValid = 100
 nTest = 1000
 nEpochs = 100
-batchSize = 200
+batchSize = 5
 validationInterval = 1000
 
 lossFunction = <class 'torch.nn.modules.loss.CrossEntropyLoss'>
@@ -25,9 +25,16 @@ nFeatureBank = 2
 nClasses = 9
 k = 3
 nLayers = 2
-Feature Reduction = False
+Feature Reduction = True
 Class Reduction = True
 Used Architecture = ConvNet
 Edge Function = Successive
 EdgeFn Threshold = 0.5
+
+Runtime = 575.504043976
+
+costBest = 0.91
+costLast = 0.91
+GE_best = [4.011000156402588, 4.194778919219971, 4.235649585723877, 4.296748161315918, 4.319797039031982, 4.368098258972168, 4.2661871910095215, 4.388429641723633, 4.333333492279053, 4.326530456542969]
+GE_last = [4.011000156402588, 4.154618263244629, 4.256797790527344, 4.264227867126465, 4.304568290710449, 4.355828285217285, 4.273381233215332, 4.462810039520264, 4.379629611968994, 4.36734676361084]
 

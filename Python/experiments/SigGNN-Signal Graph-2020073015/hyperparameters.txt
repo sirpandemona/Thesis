@@ -1,0 +1,88 @@
+2020/07/30 15:03:56
+
+nTrain = 8000
+nValid = 1000
+nTest = 1000
+nEpochs = 10
+batchSize = 5
+validationInterval = 1000
+
+lossFunction = <class 'torch.nn.modules.loss.CrossEntropyLoss'>
+OptimAlg = ADAM
+learningRate = 0.001
+beta1 = 0.9
+beta2 = 0.999
+device = cpu
+
+bias = False
+nonlinearity = <class 'torch.nn.modules.activation.ReLU'>
+dimNodeSignals = [1, 2, 2]
+nShiftTaps = [3, 3]
+nFilterNodes = [5, 5]
+dimLayersMLP = [9]
+
+nFeatureBank = 2
+nClasses = 9
+k = 3
+nLayers = 2
+Feature Reduction = True
+Class Reduction = True
+Used Architecture = ConvNet
+Edge Function = Threshold Correlation
+EdgeFn Threshold = 0.5
+
+Runtime = 80.1574915000001
+
+costBest = 0.889
+costLast = 0.889
+GE_best = [4.986000061035156, 5.2650604248046875, 5.309091091156006, 5.372469425201416, 5.352040767669678, 5.417177677154541, 5.414285659790039, 5.380165100097656, 5.388888835906982, 5.3608245849609375]
+GE_last = [4.986000061035156, 5.267068386077881, 5.345454692840576, 5.408906936645508, 5.357142925262451, 5.386503219604492, 5.400000095367432, 5.355371952056885, 5.462963104248047, 5.422680377960205]
+
+bias = False
+nonlinearity = <class 'torch.nn.modules.activation.ReLU'>
+dimNodeSignals = [1, 2, 2]
+nShiftTaps = [2, 2]
+nFilterNodes = [5, 5]
+dimLayersMLP = [9]
+
+nFeatureBank = 2
+nClasses = 9
+k = 2
+nLayers = 2
+Feature Reduction = True
+Class Reduction = True
+Used Architecture = ConvNet
+Edge Function = Threshold Correlation
+EdgeFn Threshold = 0.5
+
+Runtime = 57.49510905199895
+
+costBest = 0.893
+costLast = 0.893
+GE_best = [4.0879998207092285, 4.054326057434082, 4.06969690322876, 4.060728549957275, 4.189743518829346, 4.099379062652588, 4.150000095367432, 4.032786846160889, 4.065420627593994, 4.052083492279053]
+GE_last = [4.0879998207092285, 4.106639862060547, 4.072727203369141, 4.0931172370910645, 4.128205299377441, 4.118012428283691, 4.150000095367432, 4.098360538482666, 4.130841255187988, 4.104166507720947]
+
+bias = False
+nonlinearity = <class 'torch.nn.modules.activation.ReLU'>
+dimNodeSignals = [1, 2, 2]
+nShiftTaps = [1, 1]
+nFilterNodes = [5, 5]
+dimLayersMLP = [9]
+
+nFeatureBank = 2
+nClasses = 9
+k = 1
+nLayers = 2
+Feature Reduction = True
+Class Reduction = True
+Used Architecture = ConvNet
+Edge Function = Threshold Correlation
+EdgeFn Threshold = 0.5
+
+Runtime = 32.26906217500073
+
+costBest = 0.996
+costLast = 0.996
+GE_best = [3.9749999046325684, 3.981963872909546, 3.9787232875823975, 3.9838056564331055, 3.9641025066375732, 3.9875776767730713, 3.9496402740478516, 3.966942071914673, 3.934579372406006, 3.96875]
+GE_last = [3.9749999046325684, 3.981963872909546, 3.9787232875823975, 3.9838056564331055, 3.9641025066375732, 3.9875776767730713, 3.9496402740478516, 3.966942071914673, 3.934579372406006, 3.96875]
+

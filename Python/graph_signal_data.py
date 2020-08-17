@@ -54,4 +54,4 @@ class signal_data(Utils.dataTools._dataForClassification):
         y_t = torch.reshape(y, (-1,1))
         (_,pos) = torch.where(guessing_vector == y_t)
         GE = torch.mean(pos.float())
-        return int(GE)
+        return float(GE)
