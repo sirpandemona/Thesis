@@ -7,6 +7,7 @@ Created on Wed Jul 29 15:23:25 2020
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import json
 def make_fig(thisTrainVars, saveDir,nEpochs,  validationInterval):
     #\\\ FIGURES DIRECTORY:
     lossTrain = thisTrainVars['lossTrain']
@@ -59,3 +60,17 @@ def make_fig(thisTrainVars, saveDir,nEpochs,  validationInterval):
     plt.title(r'Results')
     costFig.savefig(os.path.join(saveDirFigs,'eval.pdf'),
                         bbox_inches = 'tight')
+    
+def get_all_results():
+    results = {}
+    for folder in [x[0] for x in os.walk('experiments')]:
+        results[folder]={}
+        res_path = os.path.join(folder,'results.npy')
+        hyper_param_path = os.path.join(folder,'hyper_params.list')
+        if os.path.isfile(res_path):
+            results[folder]['res'] = np.load(res_path)
+            
+        if os.path.isfile(hyper_param_path):
+            with open(hyper_param_path,'r') as f:
+                results[folder]['hyperparam'] = json.loads(f.read())
+    return results

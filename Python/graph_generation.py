@@ -162,7 +162,7 @@ def evaluateGE(model, data, **kwargs):
         # We compute the error
         costBest = data.evaluate(yHatTest, yTest)
         #GE_best = data.evaluate_GE(yHatTest,yTest)
-        GE_best = evaluate_traces(yHatTest,yTest,10,data)
+        GE_best = evaluate_traces(yHatTest,yTest,100,data)
     ##############
     # LAST MODEL #
     ##############
@@ -176,7 +176,7 @@ def evaluateGE(model, data, **kwargs):
         #   testSize x numberOfClasses
         # We compute the error
         costLast = data.evaluate(yHatTest, yTest)
-        GE_last =evaluate_traces(yHatTest,yTest,10,data)
+        GE_last =evaluate_traces(yHatTest,yTest,100,data)
 
     evalVars = {}
     evalVars['costBest'] = costBest.item()
@@ -238,6 +238,7 @@ def combine_traces(probs, y, n):
     return (torch.stack(combined_probs), torch.tensor(combined_y))    
 
 def grouper(n, iterable, fillvalue=None):
+    #helper function to group a set in subsets
     "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
     tail = len(iterable) % n
     if tail > 0:

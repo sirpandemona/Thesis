@@ -50,6 +50,11 @@ class signal_data(Utils.dataTools._dataForClassification):
         self.expandDims()
 
     def evaluate_GE(self, yHat, y, tol = 1e-9):
+        """
+        evaluates the guessing entropy 
+        yHat: key guessing vector 
+        y: (Ground Truth) Classification vector
+        """
         guessing_vector = torch.argsort(yHat, descending=True)
         y_t = torch.reshape(y, (-1,1))
         (_,pos) = torch.where(guessing_vector == y_t)

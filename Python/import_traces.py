@@ -40,13 +40,12 @@ def import_traces(cluster, hw, feat_red,name):
     keys=keys.flatten()
     return (traces,keys)
 
-def get_DPA_traces(cluster,hw,feat_red ):
-    
+def get_DPA_traces(cluster,hw,feat_red ):    
     """
     Gets traces from the DPA dataset
-    count: indicates the amount of traces from each class which are to be returned; if count<0 return all traces available
     path: default folder
     hw: Whether the full key, or the HW model of the key should be loaded
+    feat_red: Whether the full dataset should be used, or the one with feature reduction
     """
     if cluster:
         path=r'/home/nfs/vascodebruijn/thesis/DPAv4'

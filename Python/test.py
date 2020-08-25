@@ -18,8 +18,9 @@ import time
 import torch; torch.set_default_dtype(torch.float64)
 import torch.nn as nn
 import torch.optim as optim
+import json
+#shortcut to check which path should be used
 cluster = os.getcwd() != 'C:\\Users\\vascodebruijn\\Documents\\GitHub\\Thesis\\Python'
-
 #import Albertos lib
 module_path = os.path.abspath(os.path.join('..'))
 if cluster:
@@ -40,8 +41,6 @@ import Modules.loss as loss
 
 from Utils.miscTools import writeVarValues
 from Utils.miscTools import saveSeed
-#from torch.utils.tensorboard import SummaryWriter
-
 
 #import own stuff
 if module_path not in sys.path:
@@ -56,7 +55,7 @@ graphType = 'Signal Graph' # Type of graph
 thisFilename = 'SigGNN' # This is the general name of all related files
 saveDirRoot = 'experiments' # Relative location where to save the file
 saveDir = os.path.join(saveDirRoot, thisFilename) # Dir where to save all the results from each run
-today = datetime.datetime.now().strftime("%Y%m%d%H") #Hour should be large enought discriminator
+today = datetime.datetime.now().strftime("%Y%m%d%H%M") #Hour should be large enought discriminator
 saveDir = saveDir + '-' + graphType + '-' + today
 #writer = SummaryWriter()
 # Create directory
@@ -68,14 +67,15 @@ varsFile = os.path.join(saveDir,'hyperparameters.txt')
 with open(varsFile, 'w+') as file:
     file.write('%s\n\n' % datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"))
 
+resultsFile =  os.path.join(saveDir,'results.npy')  
+hyperParam_list = os.path.join(saveDir,'hyper_params.list')  
 
-    
 
 #training params
 nTrain = 8000
-nValid = 100
-nTest = 100
-nEpochs = 100 # Number of epochs
+nValid = 1000
+nTest = 1000
+nEpochs = 10 # Number of epochs
 batchSize = 100 # Batch size
 validationInterval = 1000 # How many training steps to do the validation
 trainingOptions = {} 
@@ -137,8 +137,11 @@ candidateK = [2,3,4,5]
 candidateFn= [("Threshold Correlation",0.8),("Threshold Correlation",0.5),("Threshold Correlation",0.2),("Successive",0.5),("KNN Correlation",1),("KNN Correlation",2),("KNN Correlation",4),("KNN Correlation",8)]
 
 candidateFn= [("Successive",0.5)]
+candidateF = [16]
+candidateL = [3]
 
-results = np.zeros([len(candidateF,len(candidateL),len(candidateK),len(candidateFn))])
+
+results = np.empty((0,100))
 
 for F  in candidateF:
     for L in candidateL:
@@ -157,98 +160,10 @@ for F  in candidateF:
                           'dataset': 'dpa4'
                           })
 #diff k
-'''
-hyperparam_settings.append( {'F': 2,
-                          'nClasses' : 9,
-                          'k' : 2,
-                          'nLayers': 2,
-                          'Feature Reduction': True,
-                          'Class Reduction' : True,
-                          'Used Architecture': 'ConvNet',
-                          'Edge Function': "Threshold Correlation",
-                          'EdgeFn Threshold': 0.5,
-                          'dataset': 'dpa4'
-                          })
-hyperparam_settings.append( {'F': 2,
-                          'nClasses' : 9,
-                          'k' : 1,
-                          'nLayers': 2,
-                          'Feature Reduction': True,
-                          'Class Reduction' : True,
-                          'Used Architecture': 'ConvNet',
-                          'Edge Function': "Threshold Correlation",
-                          'EdgeFn Threshold': 0.5,
-                          'dataset': 'dpa4'
-                          })
-hyperparam_settings.append( {'F': 2,
-                          'nClasses' : 9,
-                          'k' : 4,
-                          'nLayers': 2,
-                          'Feature Reduction': True,
-                          'Class Reduction' : True,
-                          'Used Architecture': 'ConvNet',
-                          'Edge Function': "Threshold Correlation",
-                          'EdgeFn Threshold': 0.5,
-                          'dataset': 'dpa4'
-                          })
-hyperparam_settings.append( {'F': 2,
-                          'nClasses' : 9,
-                          'k' : 5,
-                          'nLayers': 2,
-                          'Feature Reduction': True,
-                          'Class Reduction' : True,
-                          'Used Architecture': 'ConvNet',
-                          'Edge Function': "Threshold Correlation",
-                          'EdgeFn Threshold': 0.5,
-                          'dataset': 'dpa4'
-                          })
-#diff F
-hyperparam_settings.append( {'F': 1,
-                          'nClasses' : 9,
-                          'k' : 3,
-                          'nLayers': 2,
-                          'Feature Reduction': True,
-                          'Class Reduction' : True,
-                          'Used Architecture': 'ConvNet',
-                          'Edge Function': "Threshold Correlation",
-                          'EdgeFn Threshold': 0.5,
-                          'dataset': 'dpa4'
-                          })
-hyperparam_settings.append( {'F': 3,
-                          'nClasses' : 9,
-                          'k' : 3,
-                          'nLayers': 2,
-                          'Feature Reduction': True,
-                          'Class Reduction' : True,
-                          'Used Architecture': 'ConvNet',
-                          'Edge Function': "Threshold Correlation",
-                          'EdgeFn Threshold': 0.5,
-                          'dataset': 'dpa4'
-                          })
-hyperparam_settings.append( {'F': 4,
-                          'nClasses' : 9,
-                          'k' : 3,
-                          'nLayers': 2,
-                          'Feature Reduction': True,
-                          'Class Reduction' : True,
-                          'Used Architecture': 'ConvNet',
-                          'Edge Function': "Threshold Correlation",
-                          'EdgeFn Threshold': 0.5,
-                          'dataset': 'dpa4'
-                          })
-#diff layers
-hyperparam_settings.append( {'F': 2,
-                          'nClasses' : 9,
-                          'k' : 3,
-                          'nLayers': 3,
-                          'Feature Reduction': True,
-                          'Class Reduction' : True,
-                          'Used Architecture': 'ConvNet',
-                          'Edge Function': "Threshold Correlation",
-                          'EdgeFn Threshold': 0.5,
-                          'dataset': 'dpa4'
-                          })
-'''
+with open (hyperParam_list, 'w') as f:
+    f.write(json.dumps(hyperparam_settings))
+    
+    
 for hyperparams in hyperparam_settings:
     nFeatureBank = hyperparams['F']
     k = hyperparams['k']
@@ -297,7 +212,7 @@ for hyperparams in hyperparam_settings:
     nSelectedNodes= [nFeatures] *nLayers
     poolingSize=[nFeatures]*nLayers
     
-    #Put all the vars in the codestuff
+    #Put all the vars in the architecture
     EdgeNet = archit.EdgeVariantGNN(dimNodeSignals, nShiftTaps,nFilterNodes,bias,nonlinearity,nSelectedNodes,poolingFn,poolingSize,dimLayersMLP, GSO)
     ConvNet = archit.SelectionGNN(dimNodeSignals, nFilterTaps, bias, nonlinearity,nSelectedNodes,poolingFn, poolingSize,dimLayersMLP,GSO)
     
@@ -341,8 +256,10 @@ for hyperparams in hyperparam_settings:
     finish = time.perf_counter()
     runtime = finish-start
         
-    writeVarValues(varsFile, {'Runtime':runtime})    
+    writeVarValues(varsFile, {'Runtime':runtime})  
+    
     writeVarValues(varsFile, evalVars)    
-
+    results = np.append(results,[evalVars['GE_best']],axis=0)
+    np.save(resultsFile,results)
 #utils.make_fig(thisTrainVars, saveDir,nEpochs, validationInterval)
 
