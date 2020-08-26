@@ -74,3 +74,23 @@ def get_all_results():
             with open(hyper_param_path,'r') as f:
                 results[folder]['hyperparam'] = json.loads(f.read())
     return results
+
+def generate_hyperparamlist(candidateF,candidateL,candidateK,candidateFn):
+    hyperparam_settings = []
+    for F  in candidateF:
+        for L in candidateL:
+            for K in candidateK:
+                for efn in candidateFn:
+                    (fn,c) = efn
+                    hyperparam_settings.append({'F': F,
+                              'nClasses' : 9,
+                              'k' : K,
+                              'nLayers': L,
+                              'Feature Reduction': True,
+                              'Class Reduction' : True,
+                              'Used Architecture': 'ConvNet',
+                              'Edge Function': fn,
+                              'EdgeFn Threshold': c,
+                              'dataset': 'dpa4'
+                              })
+    return hyperparam_settings
