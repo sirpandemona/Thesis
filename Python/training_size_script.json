@@ -1,0 +1,7 @@
+[{"F": 12, "nClasses": 9, "k": 3, "nLayers": 4, "Feature Reduction": true, "Class Reduction": true, "Used Architecture": "ConvNet", "Edge Function": "Threshold Correlation", "EdgeFn Threshold": 0.5, "dataset": "dpa4","mask":true,"Size Dataset":
+3000},
+{"F": 12, "nClasses": 9, "k": 3, "nLayers": 4, "Feature Reduction": true, "Class Reduction": true, "Used Architecture": "ConvNet", "Edge Function": "Threshold Correlation", "EdgeFn Threshold": 0.5, "dataset": "dpa4","mask":true,"Size Dataset":5000},
+{"F": 12, "nClasses": 9, "k": 3, "nLayers": 4, "Feature Reduction": true, "Class Reduction": true, "Used Architecture": "ConvNet", "Edge Function": "Threshold Correlation", "EdgeFn Threshold": 0.5, "dataset": "dpa4","mask":true,"Size Dataset":7500},
+{"F": 12, "nClasses": 9, "k": 3, "nLayers": 4, "Feature Reduction": true, "Class Reduction": true, "Used Architecture": "ConvNet", "Edge Function": "Threshold Correlation", "EdgeFn Threshold": 0.5, "dataset": "dpa4","mask":true,"Size Dataset":10000},
+{"F": 12, "nClasses": 9, "k": 3, "nLayers": 4, "Feature Reduction": true, "Class Reduction": true, "Used Architecture": "ConvNet", "Edge Function": "Threshold Correlation", "EdgeFn Threshold": 0.5, "dataset": "dpa4","mask":true,"Size Dataset":15000},
+{"F": 12, "nClasses": 9, "k": 3, "nLayers": 4, "Feature Reduction": true, "Class Reduction": true, "Used Architecture": "ConvNet", "Edge Function": "Threshold Correlation", "EdgeFn Threshold": 0.5, "dataset": "dpa4","mask":true,"Size Dataset":25000}]

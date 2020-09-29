@@ -26,8 +26,9 @@ sbox=(
     0x70,0x3e,0xb5,0x66,0x48,0x03,0xf6,0x0e,0x61,0x35,0x57,0xb9,0x86,0xc1,0x1d,0x9e,
     0xe1,0xf8,0x98,0x11,0x69,0xd9,0x8e,0x94,0x9b,0x1e,0x87,0xe9,0xce,0x55,0x28,0xdf,
     0x8c,0xa1,0x89,0x0d,0xbf,0xe6,0x42,0x68,0x41,0x99,0x2d,0x0f,0xb0,0x54,0xbb,0x16) 
-
-def import_traces(cluster, hw, feat_red,name):
+hw = [bin(x).count("1") for x in range(256)] 
+ 
+def import_traces(cluster, hw, feat_red,name,mask):
     """Overarching import function"""
     traces = []
     keys = []
@@ -37,9 +38,49 @@ def import_traces(cluster, hw, feat_red,name):
         (traces, keys) =  get_aes_hd()
     if name == 'delay':
         (traces,keys) =  get_delayed_traces()
+    if name == 'ascad':
+        (traces,keys) = get_ascad_traces(cluster,hw,feat_red)
     keys=keys.flatten()
     return (traces,keys)
 
+def get_ascad_traces(cluster,hw,mask=False,data='train'):
+    """
+    Gets traces from the ASCAD dataset
+    path: default folder
+    hw: Whether the full key, or the HW model of the key should be loaded
+    feat_red: Whether the full dataset should be used, or the one with feature reduction
+    mask: whether the masked or unmasked dataset should be used
+    """
+    
+    #use fixed key
+    key = 34
+
+    if cluster:
+        path=r'/home/nfs/vascodebruijn/thesis/ASCAD_Keys'
+    else:
+        path=r'C:/Users/vascodebruijn/Thesis_Data/student-datasets/ASCAD_Keys'
+        
+    train_x, test_x = r'%s/traces/train_traces.npy'%path, r'%s/traces/test_traces.npy'%path
+    traces_train = np.load(train_x)
+    traces_test = np.load(test_x)
+    keys_train=  np.full(len(traces_train),key)
+    keys_test = np.full(len(traces_test),key)
+
+    if data == 'train':
+        return (traces_train, keys_train)
+    else:
+        return (traces_train, keys_train,traces_test,keys_test)
+
+def get_ascad_info(cluster):
+    if cluster:
+        path = '/home/nfs/vascodebruijn/thesis/ASCAD_Keys/Value/test_plaintexts.npy'
+    else:
+        path=r'C:/Users/vascodebruijn/Thesis_Data/student-datasets/ASCAD_Keys/Value/test_plaintexts.npy'
+        
+    ptxts = np.load(path)
+    offset = np.zeros(ptxts.shape)
+    return (ptxts, offset)
+    
 def get_DPA_traces(cluster,hw,feat_red ):    
     """
     Gets traces from the DPA dataset
@@ -56,14 +97,10 @@ def get_DPA_traces(cluster,hw,feat_red ):
     fr_traces_path = r'%s/traces/traces_50_Value.npy'% path
     fr_hw_traces_path = r'%s/traces/traces_50_HW.npy'% path
     
-    keys_path = r'%s/Value/model.npy'% path
-    hw_keys_path = r'%s/HW/model_hw.npy'% path
     
-    kp = keys_path
+    key = 108
+    
     tp = traces_path
-    
-    if(hw):
-        kp = hw_keys_path
         
     if(feat_red):
         tp = fr_traces_path
@@ -72,14 +109,65 @@ def get_DPA_traces(cluster,hw,feat_red ):
         tp = fr_hw_traces_path
     
     traces = np.load(tp, mmap_mode='r')
-    keys = np.load(kp, mmap_mode='r')
-    keys = keys.astype('float32')    
-    
-    if len(keys) > len(traces):
-        keys = keys[0:len(traces)]
-    
+    keys = np.full(len(traces),key)
+        
     return (traces,keys)
 
+def get_DPA_info(cluster):
+    if cluster:
+        path = '/home/nfs/vascodebruijn/thesis/dpav4_rsm_index.txt'
+    else:
+        path = 'C:\\Users\\vascodebruijn\\Documents\\GitHub\\Thesis\\Python\\dpav4_rsm_index.txt'
+    file = open(path,'r')
+    keys = []
+    ptxts = []
+    ctxts = []
+    offsets = []
+    for line in file.readlines():
+        data = line.split()
+        key = int(data[0][0:2],16)
+        ptxt = int(data[1][0:2],16)
+        ctxt = int(data[2][0:2],16)
+        offset = int(data[3],16)
+        
+        keys.append(key)
+        ptxts.append(ptxt)
+        ctxts.append(ctxt)
+        offsets.append(offset)
+    
+    return (np.asarray(keys),np.asarray(ptxts),np.asarray(ctxts),np.asarray(offsets))
+
+def leakage_model(keys, ptxts, offsets, model):
+    IVs =[]
+    HWs = []
+    for i in range(len(keys)):
+        key = keys[i]
+        plaintxt = ptxts[i]
+        offset = offsets[i]
+        
+        IV = sbox[plaintxt ^ key] ^ offset
+        HW = hw[IV]
+        IVs.append(IV)
+        HWs.append(HW)
+    return (IVs, HWs)
+
+def process_y(y,ptxts,offsets,model):
+    res = []
+    for i in range(len(y)):
+        plaintxt = ptxts[i]
+        offset = offsets[i]
+        y_i = y[i]
+        ykeys = np.zeros((256))
+        for key in range(0,256):
+            IV = sbox[plaintxt ^ key] ^ offset        
+            HW = hw[IV]
+            if model == 'IV':
+                ykeys[key] = y_i[IV]
+            if model == 'HW':
+                ykeys[key] = y_i[HW]
+        res.append(ykeys)
+    return np.asarray(res)
+      
 def get_aes_hd(path = r'C:\Users\vascodebruijn\Documents\GitHub\AES_HD_Dataset\\'):
     
     """
@@ -132,7 +220,7 @@ def get_trace_hws(info_lines) :
 
     """
     
-    hw = [bin(x).count("1") for x in range(256)]
+   
     sorted_hw = [[] for _ in range(9)]
     
     for i in range(len(info_lines)):

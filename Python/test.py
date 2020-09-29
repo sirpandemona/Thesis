@@ -53,8 +53,23 @@ import graph_signal_data as gsd
 import utils
 #File handling 
 graphType = 'Signal Graph' # Type of graph
-thisFilename = 'SigGNN' # This is the general name of all related files
+thisFilename = 'GenericRun' # This is the general name of all related files
 saveDirRoot = 'experiments' # Relative location where to save the file
+hw = [bin(x).count("1") for x in range(256)]
+#Hyperparams
+hyperparam_settings =[]
+results = np.empty((0,100))
+
+input_args = sys.argv
+if len(input_args) > 1:
+    hyperparam_doc = input_args[1] 
+    with open(hyperparam_doc,'r') as f:
+        hyperparam_settings = json.loads(f.read())
+    thisFilename = hyperparam_doc
+    print(thisFilename)
+else:
+   hyperparam_settings=utils.generate_hyperparamlist([8,10,12,16,20],[3,4,5],[2,3,4],[("Threshold Correlation",0.2)]) 
+#save params   
 saveDir = os.path.join(saveDirRoot, thisFilename) # Dir where to save all the results from each run
 today = datetime.datetime.now().strftime("%Y%m%d%H%M") #Hour should be large enought discriminator
 saveDir = saveDir + '-' + graphType + '-' + today
@@ -62,8 +77,7 @@ saveDir = saveDir + '-' + graphType + '-' + today
 # Create directory
 if not os.path.exists(saveDir):
     os.makedirs(saveDir)
-    
-#save params    
+ 
 varsFile = os.path.join(saveDir,'hyperparameters.txt')
 with open(varsFile, 'w+') as file:
     file.write('%s\n\n' % datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"))
@@ -76,7 +90,7 @@ hyperParam_list = os.path.join(saveDir,'hyper_params.list')
 nTrain = 8000
 nValid = 1000
 nTest = 1000
-nEpochs = 100 # Number of epochs
+nEpochs = 10 # Number of epochs
 batchSize = 200 # Batch size
 validationInterval = 1000 # How many training steps to do the validation
 trainingOptions = {} 
@@ -117,29 +131,7 @@ writeVarValues(varsFile, {'lossFunction': lossFunction,
                           'device': device,
                           })
   
-#Hyperparams
-hyperparam_settings =[]
-results = np.empty((0,100))
 
-input_args = sys.argv
-if len(input_args) > 1:
-    hyperparam_doc = input_args[1] 
-    with open(hyperparam_doc,'r') as f:
-        hyperparam_settings = json.loads(f.read())
-else:
-   hyperparam_settings=utils.generate_hyperparamlist([8,10,12,16,20],[3,4,5],[2,3,4],[("Threshold Correlation",0.5)]) 
-   hyperparams_base =  {'F': 12,
-                              'nClasses' : 9,
-                              'k' : 3,
-                              'nLayers': 4,
-                              'Feature Reduction': True,
-                              'Class Reduction' : True,
-                              'Used Architecture': 'ConvNet',
-                              'Edge Function': "Threshold Correlation",
-                              'EdgeFn Threshold': 0.5,
-                              'dataset': 'dpa4'
-                              }
-   hyperparam_settings.append(hyperparams_base)
 
 #diff k
 with open (hyperParam_list, 'w') as f:
@@ -156,23 +148,41 @@ for hyperparams in hyperparam_settings:
     chosen_arch = hyperparams['Used Architecture']
     edge_function = hyperparams['Edge Function']
     threshold = hyperparams['EdgeFn Threshold']
+    size_dataset = hyperparams['Size Dataset']
     edge_fn = gg.get_edge_fn(edge_function,threshold)
     if (cr):
         nClasses = 9
     else:
         nclasses = 256
-      
+    mask = None
+    if dataset == 'ascad':
+        mask = hyperparams['mask']
     #get the data and transform it into a graph
-    (traces, keys) = import_traces.import_traces(cluster,cr,fr, dataset)
+    (traces_total, keys_total) = import_traces.import_traces(cluster,cr,fr, dataset,mask) 
+    
+    (keys,ptxts,ctxts,offsets) = import_traces.get_DPA_info(False)
+    (iv, hw) = import_traces.leakage_model(keys, ptxts, offsets, '')
+    
+    if(fr):
+        lm = np.asarray(hw)
+    else:
+        lm = np.asarray(iv)
+    
+    traces,lm = traces_total[0:size_dataset,:],lm[0:size_dataset] 
+    
     G = gg.generate_graph(traces,edge_fn)    
     (A,V) = G
     
     #create datamodel to use in GNN framework
-    cros_valid = KFold(n_splits = 10, shuffle=True)
+    splits = 10
+    #if len(hyperparam_settings) > 20:
+    #    splits = 3
+    cros_valid = KFold(n_splits = splits, shuffle=True)
     
     for train, test in cros_valid.split(traces):
-        X_train, X_test, y_train, y_test = traces[train], traces[test], keys[train], keys[test]
-        data = gsd.signal_data(traces.copy(),keys.copy(),G,nTrain,nValid,nTest,cross_eval=True, X_train=X_train,X_test=X_test,Y_train=y_train,Y_test=y_test )
+        X_train, X_test, y_train, y_test = traces[train], traces[test], lm[train], lm[test]
+        cv_ptxts, cv_offsets,cv_keys = ptxts[test],offsets[test],keys[test]
+        data = gsd.signal_data(traces.copy(),keys.copy(),G,len(X_train),len(X_test),len(X_test),cross_eval=True, X_train=X_train,X_test=X_test,Y_train=y_train,Y_test=y_test )
     
     #data = gsd.signal_data(traces.copy(),keys.copy(),G,nTrain,nValid,nTest )
         (nTraces,nFeatures) = traces.shape
@@ -184,7 +194,8 @@ for hyperparams in hyperparam_settings:
         dimLayersMLP= [nClasses]
         nShiftTaps =[k] * nLayers
         nFilterTaps = [k] * nLayers
-        nFilterNodes = [5] * nLayers
+        nFilterNodes = [nFeatures] * nLayers
+        nAttentionHeads = [k] * nLayers
         GSO = A
         
         writeVarValues(varsFile, {'bias': bias,
@@ -200,12 +211,14 @@ for hyperparams in hyperparam_settings:
         poolingSize=[nFeatures]*nLayers
         
         #Put all the vars in the architecture
+        GCATNet = archit.GraphConvolutionAttentionNetwork(dimNodeSignals, nFilterTaps, nAttentionHeads, bias, nonlinearity(), nSelectedNodes, poolingFn, poolingSize, dimLayersMLP, GSO)
         EdgeNet = archit.EdgeVariantGNN(dimNodeSignals, nShiftTaps,nFilterNodes,bias,nonlinearity,nSelectedNodes,poolingFn,poolingSize,dimLayersMLP, GSO)
         ConvNet = archit.SelectionGNN(dimNodeSignals, nFilterTaps, bias, nonlinearity,nSelectedNodes,poolingFn, poolingSize,dimLayersMLP,GSO)
         
         architectures = {}
         architectures['EdgeNet'] = EdgeNet
         architectures['ConvNet'] = ConvNet
+        architectures['GCATNet'] = GCATNet
         netArch = architectures[chosen_arch]
         
         
@@ -238,7 +251,7 @@ for hyperparams in hyperparam_settings:
         start = time.perf_counter()
         
         thisTrainVars = GNNModel.train(data, nEpochs, batchSize, **trainingOptions)
-        evalVars = GNNModel.evaluate(data)
+        evalVars = GNNModel.evaluate(data, ptx = cv_ptxts, offset = cv_offsets, keys =cv_keys )
         
         finish = time.perf_counter()
         runtime = finish-start
@@ -248,5 +261,9 @@ for hyperparams in hyperparam_settings:
         writeVarValues(varsFile, evalVars)    
         results = np.append(results,[evalVars['GE_best']],axis=0)
         np.save(resultsFile,results)
+        
+        #if were hyperparameter tuning, only run 1 iteration
+        if len(hyperparam_settings) > 20:
+            break
 #utils.make_fig(thisTrainVars, saveDir,nEpochs, validationInterval)
 

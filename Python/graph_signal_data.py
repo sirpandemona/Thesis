@@ -19,7 +19,7 @@ from sklearn.model_selection import train_test_split
 
 class signal_data(Utils.dataTools._dataForClassification):
     
-    def __init__(self,x,y,G,nTrain,nValid,nTest):
+    def __init__(self,x,y,G,nTrain,nValid,nTest,cross_eval=False, X_train=None,X_test=None,Y_train=None,Y_test=None):
         super().__init__()
         (A,V) = G
         (N,_) = x.shape
@@ -29,17 +29,20 @@ class signal_data(Utils.dataTools._dataForClassification):
         self.nTrain = nTrain
         self.nValid = nValid
         self.nTest = nTest
-        assert nTrain+nValid+nTest <= self.nTotal, "Issue with splitting the dataset in test and train"
+        #assert nTrain+nValid+nTest <= self.nTotal, "Issue with splitting the dataset in test and train"
         
-        X_train, X_tmp, y_train,y_tmp = train_test_split(x,y,train_size=nTrain)
-        X_valid,X_test,y_valid,y_test = train_test_split(X_tmp,y_tmp,train_size=nValid, test_size=nTest)
+        if cross_eval :
+            X_valid,Y_valid = X_test,Y_test
+        else:
+            X_train, X_tmp, Y_train,Y_tmp = train_test_split(x,y,train_size=nTrain)
+            X_valid,X_test,Y_valid,Y_test = train_test_split(X_tmp,Y_tmp,train_size=nValid, test_size=nTest)
         
         self.samples['train']['signals'] = X_train
-        self.samples['train']['targets'] = y_train
+        self.samples['train']['targets'] = Y_train
         self.samples['valid']['signals'] = X_valid
-        self.samples['valid']['targets']= y_valid
+        self.samples['valid']['targets']= Y_valid
         self.samples['test']['signals'] = X_test
-        self.samples['test']['targets'] =y_test
+        self.samples['test']['targets'] =Y_test
         self.astype(torch.float64)
         
         self.samples['train']['targets'] = self.samples['train']['targets'].long()

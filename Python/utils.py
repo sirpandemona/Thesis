@@ -91,6 +91,29 @@ def generate_hyperparamlist(candidateF,candidateL,candidateK,candidateFn):
                               'Used Architecture': 'ConvNet',
                               'Edge Function': fn,
                               'EdgeFn Threshold': c,
-                              'dataset': 'dpa4'
+                              'dataset': 'dpa4',
+                              "Size Dataset":10000
                               })
     return hyperparam_settings
+
+def gen_hyperparam_scatterplot(res):
+    params = res['hyperparam']
+    data =res['res'][:,0]
+    vals = []
+    K = []
+    F = []
+    L = []
+    for i in range(0,len(data)):
+        hp=params[i]
+        vals.append(data[i])
+        K.append(hp['k'])
+        L.append(hp['nLayers'])
+        F.append(hp['F'])
+    return (K,F,L,vals)
+
+def map_hws(y):
+    hw = [bin(x).count("1") for x in range(256)]
+    yhw = []
+    for k in y:
+        yhw.append(hw[int(k)])
+    return np.asarray(yhw)

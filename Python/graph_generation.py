@@ -21,6 +21,8 @@ if cluster:
 else:    
     sys.path.insert(1, 'C:\\Users\\vascodebruijn\\Documents\\GitHub\\graph-neural-networks')
 
+import import_traces
+
 def generate_graph(x,edge_fn):
     """
     Generates graph used for graph signal classification
@@ -140,6 +142,9 @@ def evaluateGE(model, data, **kwargs):
     else:
         doSaveVars = True
 
+    plaintxts = kwargs['ptx']
+    offsets = kwargs['offset']
+    keys = kwargs['keys']
     ########
     # DATA #
     ########
@@ -147,7 +152,7 @@ def evaluateGE(model, data, **kwargs):
     xTest, yTest = data.getSamples('test')
     xTest = xTest.to(device)
     yTest = yTest.to(device)
-
+    
     ##############
     # BEST MODEL #
     ##############
@@ -157,12 +162,13 @@ def evaluateGE(model, data, **kwargs):
     with torch.no_grad():
         # Process the samples
         yHatTest = model.archit(xTest)
+        key_probs = import_traces.process_y(yHatTest,plaintxts,offsets,'HW')
         # yHatTest is of shape
         #   testSize x numberOfClasses
         # We compute the error
         costBest = data.evaluate(yHatTest, yTest)
         #GE_best = data.evaluate_GE(yHatTest,yTest)
-        GE_best = evaluate_traces(yHatTest,yTest,100,data)
+        GE_best = evaluate_traces(key_probs,keys,100,data)
     ##############
     # LAST MODEL #
     ##############
@@ -172,11 +178,13 @@ def evaluateGE(model, data, **kwargs):
     with torch.no_grad():
         # Process the samples
         yHatTest = model.archit(xTest)
+        key_probs = import_traces.process_y(yHatTest,plaintxts,offsets,'HW')
+
         # yHatTest is of shape
         #   testSize x numberOfClasses
         # We compute the error
         costLast = data.evaluate(yHatTest, yTest)
-        GE_last =evaluate_traces(yHatTest,yTest,100,data)
+        GE_last = evaluate_traces(key_probs,keys,100,data)
 
     evalVars = {}
     evalVars['costBest'] = costBest.item()
@@ -208,7 +216,7 @@ def evaluate_traces(probs,y,n,data):
         results.append(GE)
     return results
        
-def combine_traces(probs, y, n):            
+def combine_traces(guesses, y, n):            
     """
     Calculate the key guessing vector over multimple samples
     probs: probabilities of each key for each input
@@ -217,12 +225,12 @@ def combine_traces(probs, y, n):
     """  
     
     grouped_props = {}
-    
+    guesses_t = torch.from_numpy(guesses).double()
     for i in range(len(y)):
         label = int(y[i])
         if not label in grouped_props:
             grouped_props[label] = []
-        grouped_props[label].append(probs[i])
+        grouped_props[label].append(guesses_t[i])
     
     combined_probs=[]
     combined_y = []
