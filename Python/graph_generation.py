@@ -7,12 +7,15 @@ Created on Tue Jun 30 12:18:43 2020
 
 import numpy as np
 import scipy
+import scipy.special
 import sys
 import os
 import torch
 import pickle
 import random
 from itertools import zip_longest
+
+
 
 cluster = os.getcwd() != 'C:\\Users\\vascodebruijn\\Documents\\GitHub\\Thesis\\Python'
 module_path = os.path.abspath(os.path.join('..'))
@@ -22,7 +25,28 @@ else:
     sys.path.insert(1, 'C:\\Users\\vascodebruijn\\Documents\\GitHub\\graph-neural-networks')
 
 import import_traces
+import utils
 
+
+def get_graph(dataset,nFeatures,edge_function,threshold,traces):
+    """
+    General function to retrieve graph, 
+    or to generate graph is no existing graph is found
+    """
+    
+    
+    graph_name = 'A_' + dataset + '_'+str(nFeatures) +'_'+edge_function+'_'+str(threshold)+'.npy'
+    edge_fn = get_edge_fn(edge_function,threshold)
+
+    print(graph_name)
+    if os.path.isfile(graph_name):
+        A = np.load(graph_name,'r')
+        G = (A,len(A))
+    else:
+        G = generate_graph(traces,edge_fn)    
+        (A,_) = G
+        np.save(graph_name,A)
+    return G
 def generate_graph(x,edge_fn):
     """
     Generates graph used for graph signal classification
@@ -86,12 +110,12 @@ def corr_knn_connection(x,k):
         A: Adjacency matrix
     """
     (N,f) = x.shape
-    A = np.zeros((N,N))
-    C = np.zeros((N,N))
+    A = np.zeros((f,f))
+    C = np.zeros((f,f))
     #put all correlations row-wise in a matrix
-    for i in range (N):
+    for i in range (f):
         v_i= x[:,i]
-        for j in range(i,N):
+        for j in range(i,f):
             v_j= x[:,j]
             (corr,_) = scipy.stats.pearsonr(v_i, v_j)
             C[i,j] = corr
@@ -99,7 +123,7 @@ def corr_knn_connection(x,k):
         #when a row is full, select the k highest values         
         c_i = C[i,:]
         sort_idx = np.argsort(c_i)
-        top = sort_idx[0:k]
+        top = sort_idx[-k:len(sort_idx)]
         A[i, top] =1
     return A  
 
@@ -110,7 +134,7 @@ def get_edge_fn(fn_name,threshold):
     """
     seq_fn = seq_connection
     corr_thresh_fn = lambda x: corr_tresh_connection(x,threshold)
-    corr_knn_fn = lambda x: corr_tresh_connection(x,threshold)
+    corr_knn_fn = lambda x: corr_knn_connection(x,threshold)
     
     edge_dic = {
         "Successive": seq_fn,
@@ -145,6 +169,16 @@ def evaluateGE(model, data, **kwargs):
     plaintxts = kwargs['ptx']
     offsets = kwargs['offset']
     keys = kwargs['keys']
+    lm = kwargs['lm']
+    dataset = kwargs['dataset']
+    nRuns = kwargs['nRuns']
+    
+    attack_size = len(keys)
+    GE_method = 'Simple'
+    if 'attack_size' in kwargs.keys():
+        attack_size = kwargs['attack_size']
+        GE_method = 'General'
+        
     ########
     # DATA #
     ########
@@ -162,31 +196,34 @@ def evaluateGE(model, data, **kwargs):
     with torch.no_grad():
         # Process the samples
         yHatTest = model.archit(xTest)
-        key_probs = import_traces.process_y(yHatTest,plaintxts,offsets,'HW')
+        yHatTest_norm =scipy.special.softmax(yHatTest.numpy())
         # yHatTest is of shape
         #   testSize x numberOfClasses
         # We compute the error
         costBest = data.evaluate(yHatTest, yTest)
         #GE_best = data.evaluate_GE(yHatTest,yTest)
-        GE_best = evaluate_traces(key_probs,keys,100,data)
+        #GE_best = evaluate_traces(key_probs,keys,500,data)
+        GE_best = utils.evaluate_GE(yHatTest_norm,plaintxts,offsets,keys,attack_size, lm,dataset,nRuns,GE_method)
     ##############
     # LAST MODEL #
     ##############
+    evalVars = {}
 
-    model.load(label = 'Last')
 
     with torch.no_grad():
         # Process the samples
         yHatTest = model.archit(xTest)
-        key_probs = import_traces.process_y(yHatTest,plaintxts,offsets,'HW')
+        yHatTest_norm =scipy.special.softmax(yHatTest.numpy())
 
         # yHatTest is of shape
         #   testSize x numberOfClasses
         # We compute the error
         costLast = data.evaluate(yHatTest, yTest)
-        GE_last = evaluate_traces(key_probs,keys,100,data)
-
-    evalVars = {}
+        #GE_last = evaluate_traces(key_probs,keys,500,data)
+        GE_last = utils.evaluate_GE(yHatTest_norm,plaintxts,offsets,keys,attack_size, lm,dataset,nRuns,GE_method)
+    
+    model.load(label = 'Last')
+    evalVars['Prediction'] = yHatTest_norm
     evalVars['costBest'] = costBest.item()
     evalVars['costLast'] = costLast.item()
     evalVars['GE_best'] = GE_best
@@ -201,56 +238,5 @@ def evaluateGE(model, data, **kwargs):
             pickle.dump(evalVars, evalVarsFile)
 
     return evalVars    
-         
-def evaluate_traces(probs,y,n,data):
-    """
-    Calculates the guessing entropy for different amount of traces
-    probs: probabilities of each key for each input
-    y: array of correct keys
-    n: max amount of traces to evaluate
-    """
-    results = []
-    for i in range(1,n+1):
-        (comb_probs, keys) = combine_traces(probs,y,i)
-        GE = data.evaluate_GE(comb_probs,keys)
-        results.append(GE)
-    return results
-       
-def combine_traces(guesses, y, n):            
-    """
-    Calculate the key guessing vector over multimple samples
-    probs: probabilities of each key for each input
-    y: array of correct keys
-    n: amount of traces
-    """  
-    
-    grouped_props = {}
-    guesses_t = torch.from_numpy(guesses).double()
-    for i in range(len(y)):
-        label = int(y[i])
-        if not label in grouped_props:
-            grouped_props[label] = []
-        grouped_props[label].append(guesses_t[i])
-    
-    combined_probs=[]
-    combined_y = []
-    
-    for label in grouped_props:
-        random.shuffle(grouped_props[label])
-        for prob_slice in grouper(n,grouped_props[label]):
-            ps = list(prob_slice)
-            ll = torch.sum(torch.log_softmax(torch.stack(ps),1),axis=0)
-            combined_probs.append(ll)
-            combined_y.append(label)
-            
-    return (torch.stack(combined_probs), torch.tensor(combined_y))    
+   
 
-def grouper(n, iterable, fillvalue=None):
-    #helper function to group a set in subsets
-    "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
-    tail = len(iterable) % n
-    if tail > 0:
-        iterable = iterable[:len(iterable)-tail]
-     
-    args = [iter(iterable)] * n
-    return zip_longest(fillvalue=fillvalue, *args)

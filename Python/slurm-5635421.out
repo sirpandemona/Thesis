@@ -1,0 +1,17 @@
+Traceback (most recent call last):
+  File "test.py", line 274, in <module>
+    thisTrainVars = GNNModel.train(data, nEpochs, batchSize, **trainingOptions)
+  File "/home/nfs/vascodebruijn/thesis/Modules/model.py", line 100, in train
+    return self.trainer.train()
+  File "/home/nfs/vascodebruijn/thesis/Modules/training.py", line 571, in train
+    self.model.load(label = 'Best')
+  File "/home/nfs/vascodebruijn/thesis/Modules/model.py", line 128, in load
+    self.archit.load_state_dict(torch.load(architLoadFile))
+  File "/home/nfs/vascodebruijn/thesis/test_env/lib64/python3.6/site-packages/torch/nn/modules/module.py", line 830, in load_state_dict
+    self.__class__.__name__, "\n\t".join(error_msgs)))
+RuntimeError: Error(s) in loading state_dict for GraphConvolutionAttentionNetwork:
+	Unexpected key(s) in state_dict: "GCAT.2.mixer", "GCAT.2.weight", "GCAT.2.filterWeight". 
+	size mismatch for GCAT.0.mixer: copying a param with shape torch.Size([3, 1, 128]) from checkpoint, the shape in current model is torch.Size([3, 1, 32]).
+	size mismatch for GCAT.0.weight: copying a param with shape torch.Size([3, 1, 64, 1]) from checkpoint, the shape in current model is torch.Size([3, 1, 16, 1]).
+	size mismatch for MLP.0.weight: copying a param with shape torch.Size([9, 3200]) from checkpoint, the shape in current model is torch.Size([9, 800]).
+srun: error: insy1: task 0: Exited with exit code 1

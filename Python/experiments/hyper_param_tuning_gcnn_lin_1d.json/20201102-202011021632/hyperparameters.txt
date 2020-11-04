@@ -1,0 +1,16 @@
+2020/11/02 16:32:42
+
+nTrain = 0
+nValid = 0
+nTest = 1000
+nEpochs = 100
+batchSize = 200
+validationInterval = 100
+
+lossFunction = <class 'torch.nn.modules.loss.CrossEntropyLoss'>
+OptimAlg = ADAM
+learningRate = 0.001
+beta1 = 0.9
+beta2 = 0.999
+device = cpu
+

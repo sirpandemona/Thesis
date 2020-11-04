@@ -8,6 +8,9 @@ Created on Mon Mar 23 13:25:13 2020
 import pandas as pd
 import scipy.io
 import numpy as np
+import h5py
+mask = np.array([0x03, 0x0c, 0x35, 0x3a, 0x50, 0x5f, 0x66, 0x69, 0x96, 0x99, 0xa0, 0xaf, 0xc5, 0xca, 0xf3, 0xfc])
+maskv4 = np.array([0x00, 0x0f, 0x36, 0x39, 0x53, 0x5c, 0x65, 0x6a,0x95, 0x9a, 0xa3, 0xac, 0xc6, 0xc9, 0xf0, 0xff])
 
 sbox=(
     0x63,0x7c,0x77,0x7b,0xf2,0x6b,0x6f,0xc5,0x30,0x01,0x67,0x2b,0xfe,0xd7,0xab,0x76,
@@ -28,22 +31,26 @@ sbox=(
     0x8c,0xa1,0x89,0x0d,0xbf,0xe6,0x42,0x68,0x41,0x99,0x2d,0x0f,0xb0,0x54,0xbb,0x16) 
 hw = [bin(x).count("1") for x in range(256)] 
  
-def import_traces(cluster, hw, feat_red,name,mask):
+def import_traces(cluster, name,mask,size):
     """Overarching import function"""
     traces = []
     keys = []
     if name == "dpa4":
-        (traces,keys) =  get_DPA_traces(cluster, hw,feat_red)
-    if name == "aes_hd":
-        (traces, keys) =  get_aes_hd()
-    if name == 'delay':
-        (traces,keys) =  get_delayed_traces()
+        (traces,keys) =  get_DPA_traces(cluster)
+        (keys,ptxts,ctxts,masks ) = get_DPA_info(cluster)
     if name == 'ascad':
-        (traces,keys) = get_ascad_traces(cluster,hw,feat_red)
-    keys=keys.flatten()
-    return (traces,keys)
+        (traces,metadata) = get_ascad_traces(cluster)
+        (keys, ptxts, masks) = get_ascad_info(metadata)
+        if mask:
+            masks = np.zeros(masks.shape,dtype=int)
+            
+    traces = traces[0:size,:]
+    keys = keys[0:size]
+    ptxts = ptxts[0:size]
+    masks = masks[0:size]
+    return (traces,keys,ptxts,masks)
 
-def get_ascad_traces(cluster,hw,mask=False,data='train'):
+def get_ascad_traces(cluster,mask=False,data='train'):
     """
     Gets traces from the ASCAD dataset
     path: default folder
@@ -53,35 +60,51 @@ def get_ascad_traces(cluster,hw,mask=False,data='train'):
     """
     
     #use fixed key
-    key = 34
 
     if cluster:
-        path=r'/home/nfs/vascodebruijn/thesis/ASCAD_Keys'
+        path=r'/home/nfs/vascodebruijn/thesis/ASCAD.h5'
     else:
-        path=r'C:/Users/vascodebruijn/Thesis_Data/student-datasets/ASCAD_Keys'
-        
-    train_x, test_x = r'%s/traces/train_traces.npy'%path, r'%s/traces/test_traces.npy'%path
-    traces_train = np.load(train_x)
-    traces_test = np.load(test_x)
-    keys_train=  np.full(len(traces_train),key)
-    keys_test = np.full(len(traces_test),key)
+        path=r'C:/Users/vascodebruijn/Thesis_Data/ASCAD_data/ASCAD_databases/ASCAD.h5'
+    
+    datafile = h5py.File(path,'r')
+    profiling_traces = datafile['Profiling_traces']['traces']
+    profiling_metadata= datafile['Profiling_traces']['metadata']
+    
+    attack_traces =datafile['Attack_traces']['traces']
+    attack_metadata  =datafile['Attack_traces']['metadata']
+    
+    traces_train = np.array(profiling_traces[:])
+    traces_test = np.array(attack_traces[:])
 
     if data == 'train':
-        return (traces_train, keys_train)
+        return (traces_train, profiling_metadata)
     else:
-        return (traces_train, keys_train,traces_test,keys_test)
+        return (traces_train, profiling_metadata,traces_test,attack_metadata)
 
-def get_ascad_info(cluster):
-    if cluster:
-        path = '/home/nfs/vascodebruijn/thesis/ASCAD_Keys/Value/test_plaintexts.npy'
-    else:
-        path=r'C:/Users/vascodebruijn/Thesis_Data/student-datasets/ASCAD_Keys/Value/test_plaintexts.npy'
+def get_ascad_info(metadata,b=2):
+    keys = []
+    ptxts = []
+    masks = []
+
+    size = len(metadata)
+    for i in range(size):
+        metadata_i = metadata[i]
+        plaintxt = metadata_i[0]
+        ciphertxt = metadata_i[1]
+        key = metadata_i[2]
+        mask = metadata_i[3]
+        desync = metadata_i[4]
         
-    ptxts = np.load(path)
-    offset = np.zeros(ptxts.shape)
-    return (ptxts, offset)
+        t_key = key[b]
+        t_ptxt = plaintxt[b] 
+        t_mask = mask[b]
+        
+        keys.append(t_key)
+        ptxts.append(t_ptxt)
+        masks.append(t_mask)
+    return (np.asarray(keys),np.asarray(ptxts),np.asarray(masks))
     
-def get_DPA_traces(cluster,hw,feat_red ):    
+def get_DPA_traces(cluster):    
     """
     Gets traces from the DPA dataset
     path: default folder
@@ -94,19 +117,11 @@ def get_DPA_traces(cluster,hw,feat_red ):
         path=r'C:/Users/vascodebruijn/Thesis_Data/student-datasets\DPAv4'
         
     traces_path = r'%s/traces/traces_complete_10000.npy' % path
-    fr_traces_path = r'%s/traces/traces_50_Value.npy'% path
-    fr_hw_traces_path = r'%s/traces/traces_50_HW.npy'% path
-    
+    fr_traces_path = r'%s/traces/traces_50_Value.npy' % path
     
     key = 108
     
-    tp = traces_path
-        
-    if(feat_red):
-        tp = fr_traces_path
-        
-    if(feat_red and hw):
-        tp = fr_hw_traces_path
+    tp = fr_traces_path
     
     traces = np.load(tp, mmap_mode='r')
     keys = np.full(len(traces),key)
@@ -137,7 +152,7 @@ def get_DPA_info(cluster):
     
     return (np.asarray(keys),np.asarray(ptxts),np.asarray(ctxts),np.asarray(offsets))
 
-def leakage_model(keys, ptxts, offsets, model):
+def leakage_model(keys, ptxts, offsets,dataset='ascad'):
     IVs =[]
     HWs = []
     for i in range(len(keys)):
@@ -145,105 +160,11 @@ def leakage_model(keys, ptxts, offsets, model):
         plaintxt = ptxts[i]
         offset = offsets[i]
         
-        IV = sbox[plaintxt ^ key] ^ offset
+        if dataset == 'dpa4':
+            IV = sbox[plaintxt ^ key] ^ mask[(offset+1)%16]
+        else:
+            IV = sbox[plaintxt ^ key] ^ offset
         HW = hw[IV]
         IVs.append(IV)
         HWs.append(HW)
     return (IVs, HWs)
-
-def process_y(y,ptxts,offsets,model):
-    res = []
-    for i in range(len(y)):
-        plaintxt = ptxts[i]
-        offset = offsets[i]
-        y_i = y[i]
-        ykeys = np.zeros((256))
-        for key in range(0,256):
-            IV = sbox[plaintxt ^ key] ^ offset        
-            HW = hw[IV]
-            if model == 'IV':
-                ykeys[key] = y_i[IV]
-            if model == 'HW':
-                ykeys[key] = y_i[HW]
-        res.append(ykeys)
-    return np.asarray(res)
-      
-def get_aes_hd(path = r'C:\Users\vascodebruijn\Documents\GitHub\AES_HD_Dataset\\'):
-    
-    """
-    Gets traces from the AES dataset
-    path: default folder
-    """
-    
-    
-    label_path = path+r'labels.csv'
-    trace_path= path+r'traces_1.csv'
-    labels = open(label_path, 'r')
-    keys = labels.read().splitlines()
-    traces_df = pd.read_csv(trace_path, delimiter=' ',header=None)
-    return (traces_df, keys)
-
-def get_delayed_traces(path = r'C:\Users\vascodebruijn\Documents\GitHub\randomdelays-traces\ctraces_fm16x4_2.mat'):
-    
-    """
-    Gets traces from the random delays dataset
-    path: default file
-    """
-    
-    
-    data = scipy.io.loadmat(path)
-    plaintxt = data['plaintext']
-    traces =data['CompressedTraces']
-    return (traces, plaintxt)
-    
-
-def get_balancedTraces(info_lines, count):
-    
-    """
-    Get a balanced set of traces from the DPA dataset without having to load all of them
-    info_lines: Metadata file from the DPA dataset
-    count: amount of traces of each class
-    """
-
-    sorted_hws = get_trace_hws(info_lines)
-    ids = []   
-    for i in range(9):
-        for j in range(count):
-            ids.append(sorted_hws[i][j])
-    return ids
-
-def get_trace_hws(info_lines) : 
-    
-    """
-    Get all Hamming  Weights for the info file
-    info_lines:  info file lines from the DPA dataset
-
-    """
-    
-   
-    sorted_hw = [[] for _ in range(9)]
-    
-    for i in range(len(info_lines)):
-        data = info_lines[i].split()
-        key = bytes.fromhex(data[0])
-        plain = bytes.fromhex(data[1])
-        cipher = bytes.fromhex(data[2])
-        
-        sbox_line = sbox[plain[0] ^ key[0]]
-        hw_line = hw[sbox_line]
-        sorted_hw[hw_line].append(i)                    
-    return sorted_hw
-
-def get_mul_indexes(vals, arr):
-    
-    """
-    Searches for the indices of values in an array
-    vals: array of values which to look for
-    arr: array for which the indices has to be seached
-    """
-    idx_arr = []
-    get_indexes = lambda x, xs: [i for (y, i) in zip(xs, range(len(xs))) if x == y]
-    for val in vals:
-        idxs = get_indexes(val, arr)
-        idx_arr.append(idxs)
-    return idx_arr

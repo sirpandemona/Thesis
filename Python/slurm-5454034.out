@@ -1,0 +1,13 @@
+Traceback (most recent call last):
+  File "test.py", line 245, in <module>
+    evalVars = GNNModel.evaluate(data)
+  File "/home/nfs/vascodebruijn/thesis/Modules/model.py", line 104, in evaluate
+    return self.evaluator(self, data, **kwargs)
+  File "/home/nfs/vascodebruijn/thesis/graph_generation.py", line 165, in evaluateGE
+    GE_best = evaluate_traces(yHatTest,yTest,10,data)
+  File "/home/nfs/vascodebruijn/thesis/graph_generation.py", line 207, in evaluate_traces
+    GE = data.evaluate_GE(comb_probs,keys)
+  File "/home/nfs/vascodebruijn/thesis/graph_signal_data.py", line 57, in evaluate_GE
+    return double(GE)
+NameError: name 'double' is not defined
+srun: error: tbm1: task 0: Exited with exit code 1

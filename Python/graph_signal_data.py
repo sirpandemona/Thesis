@@ -31,11 +31,8 @@ class signal_data(Utils.dataTools._dataForClassification):
         self.nTest = nTest
         #assert nTrain+nValid+nTest <= self.nTotal, "Issue with splitting the dataset in test and train"
         
-        if cross_eval :
-            X_valid,Y_valid = X_test,Y_test
-        else:
-            X_train, X_tmp, Y_train,Y_tmp = train_test_split(x,y,train_size=nTrain)
-            X_valid,X_test,Y_valid,Y_test = train_test_split(X_tmp,Y_tmp,train_size=nValid, test_size=nTest)
+        X_valid,Y_valid = X_test,Y_test
+
         
         self.samples['train']['signals'] = X_train
         self.samples['train']['targets'] = Y_train
@@ -51,15 +48,3 @@ class signal_data(Utils.dataTools._dataForClassification):
         
         
         self.expandDims()
-
-    def evaluate_GE(self, yHat, y, tol = 1e-9):
-        """
-        evaluates the guessing entropy 
-        yHat: key guessing vector 
-        y: (Ground Truth) Classification vector
-        """
-        guessing_vector = torch.argsort(yHat, descending=True)
-        y_t = torch.reshape(y, (-1,1))
-        (_,pos) = torch.where(guessing_vector == y_t)
-        GE = torch.mean(pos.float())
-        return float(GE)

@@ -1,0 +1,33 @@
+2020/11/02 18:03:58
+
+nTrain = 0
+nValid = 0
+nTest = 1000
+nEpochs = 100
+batchSize = 200
+validationInterval = 100
+
+lossFunction = <class 'torch.nn.modules.loss.CrossEntropyLoss'>
+OptimAlg = ADAM
+learningRate = 0.001
+beta1 = 0.9
+beta2 = 0.999
+device = cpu
+
+bias = False
+nonlinearity = <class 'torch.nn.modules.activation.ReLU'>
+dimNodeSignals = [1, 1]
+nShiftTaps = [1]
+nFilterNodes = [700]
+dimLayersMLP = [9]
+
+nFeatureBank = 1
+nClasses = 9
+k = 1
+nLayers = 1
+Feature Reduction = True
+Class Reduction = True
+Used Architecture = ConvNet
+Edge Function = KNN Correlation
+EdgeFn Threshold = 5
+

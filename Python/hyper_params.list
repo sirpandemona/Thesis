@@ -1,0 +1,1 @@
+[{"F": 3, "nClasses": 9, "k": 5, "nLayers": 3, "Feature Reduction": true, "Class Reduction": true, "Used Architecture": "LinGCATNet", "Edge Function": "KNN Correlation", "EdgeFn Threshold": 5, "dataset": "dpa4", "Size Dataset": 1000,"mask":true}]

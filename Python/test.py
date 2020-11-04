@@ -38,7 +38,7 @@ import Modules.model as model
 import Modules.training as training
 import Modules.evaluation as evaluation
 import Modules.loss as loss
-
+import random
 
 from Utils.miscTools import writeVarValues
 from Utils.miscTools import saveSeed
@@ -51,14 +51,18 @@ import import_traces
 import graph_generation as gg
 import graph_signal_data as gsd
 import utils
+import pdb
+import mod_architectures as mod_archit
+
+def nonlin(x):
+    return x
+
 #File handling 
-graphType = 'Signal Graph' # Type of graph
 thisFilename = 'GenericRun' # This is the general name of all related files
 saveDirRoot = 'experiments' # Relative location where to save the file
 hw = [bin(x).count("1") for x in range(256)]
 #Hyperparams
 hyperparam_settings =[]
-results = np.empty((0,100))
 
 input_args = sys.argv
 if len(input_args) > 1:
@@ -69,10 +73,29 @@ if len(input_args) > 1:
     print(thisFilename)
 else:
    hyperparam_settings=utils.generate_hyperparamlist([8,10,12,16,20],[3,4,5],[2,3,4],[("Threshold Correlation",0.2)]) 
-#save params   
-saveDir = os.path.join(saveDirRoot, thisFilename) # Dir where to save all the results from each run
-today = datetime.datetime.now().strftime("%Y%m%d%H%M") #Hour should be large enought discriminator
-saveDir = saveDir + '-' + graphType + '-' + today
+
+fullCV = True
+randomCV = False
+attack_size = 0
+
+if len( input_args) > 2:
+    fullCV = input_args[2] == 'True' or input_args[2] == True
+    
+if len(input_args)>3:
+    randomCV = input_args[3] == 'True ' or input_args[3] == True
+    
+if len(input_args)>4:
+    attack_size = int(input_args[4])
+#save params
+
+ 
+saveDir = os.path.join(saveDirRoot, thisFilename) # Dir where to save all the results from each 
+
+today = datetime.datetime.now().strftime("%Y%m%d")
+saveDir=os.path.join(saveDir,today)
+date = datetime.datetime.now().strftime("%Y%m%d%H%M")
+ #Hour should be large enought discriminator
+saveDir = saveDir + '-' + date
 #writer = SummaryWriter()
 # Create directory
 if not os.path.exists(saveDir):
@@ -83,18 +106,30 @@ with open(varsFile, 'w+') as file:
     file.write('%s\n\n' % datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"))
 
 resultsFile =  os.path.join(saveDir,'results.npy')  
+results_best_File =  os.path.join(saveDir,'results_best.npy')  
+
+predictionsFile = os.path.join(saveDir,'predictions.npy')
 hyperParam_list = os.path.join(saveDir,'hyper_params.list')  
 
+print (input_args)
+
+if attack_size>0:
+    results = np.empty((0,attack_size))
+    results_best= np.empty((0,attack_size))
+else:
+    results = np.empty((0,1000))
+    results_best= np.empty((0,1000))
 
 #training params
-nTrain = 8000
-nValid = 1000
+nTrain = 0
+nValid = 0
 nTest = 1000
-nEpochs = 10 # Number of epochs
+
+nEpochs = 100 # Number of epochs
 batchSize = 200 # Batch size
-validationInterval = 1000 # How many training steps to do the validation
+validationInterval = 100 # How many training steps to do the validation
 trainingOptions = {} 
-printInterval = 500
+printInterval = 5000
    
 trainingOptions['saveDir'] = saveDir
 trainingOptions['printInterval'] = printInterval
@@ -130,14 +165,12 @@ writeVarValues(varsFile, {'lossFunction': lossFunction,
                           'beta2': beta2,
                           'device': device,
                           })
-  
-
-
-#diff k
+  #diff k
+#hyperparam_settings.reverse()  
 with open (hyperParam_list, 'w') as f:
     f.write(json.dumps(hyperparam_settings))
     
-    
+iteration = 0    
 for hyperparams in hyperparam_settings:
     nFeatureBank = hyperparams['F']
     k = hyperparams['k']
@@ -149,39 +182,51 @@ for hyperparams in hyperparam_settings:
     edge_function = hyperparams['Edge Function']
     threshold = hyperparams['EdgeFn Threshold']
     size_dataset = hyperparams['Size Dataset']
-    edge_fn = gg.get_edge_fn(edge_function,threshold)
-    if (cr):
+    
+    if cr:
         nClasses = 9
     else:
-        nclasses = 256
+        nClasses = 256
+        
     mask = None
     if dataset == 'ascad':
         mask = hyperparams['mask']
+        nFeatures=700
+    if dataset == 'dpa4':
+        nFeatures=50
     #get the data and transform it into a graph
-    (traces_total, keys_total) = import_traces.import_traces(cluster,cr,fr, dataset,mask) 
+    (traces,keys,ptxts,masks)= import_traces.import_traces(cluster, dataset,mask, size_dataset) 
     
-    (keys,ptxts,ctxts,offsets) = import_traces.get_DPA_info(False)
-    (iv, hw) = import_traces.leakage_model(keys, ptxts, offsets, '')
-    
-    if(fr):
+    (iv, hw) = import_traces.leakage_model(keys, ptxts, masks,dataset = dataset)
+    leakage_model = ''
+    if(cr):
         lm = np.asarray(hw)
+        leakage_model = "HW"
     else:
         lm = np.asarray(iv)
+        leakage_model="IV"
     
-    traces,lm = traces_total[0:size_dataset,:],lm[0:size_dataset] 
-    
-    G = gg.generate_graph(traces,edge_fn)    
-    (A,V) = G
+    if 'Feature Reduction Method' in hyperparams.keys():
+        FR_method = hyperparams['Feature Reduction Method']
+        traces = utils.feature_reduction(FR_method, 50, traces,lm, dataset,leakage_model,size_dataset)
+        nFeatures = 50
+        
+    G = gg.get_graph(dataset,nFeatures,edge_function,threshold,traces)    
+    (A,_) = G
     
     #create datamodel to use in GNN framework
     splits = 10
+    if  randomCV:
+        rnd_st = None
+    else:
+        rnd_st = 42
     #if len(hyperparam_settings) > 20:
     #    splits = 3
-    cros_valid = KFold(n_splits = splits, shuffle=True)
+    cros_valid = KFold(n_splits = splits, shuffle=True,random_state=rnd_st)
     
     for train, test in cros_valid.split(traces):
         X_train, X_test, y_train, y_test = traces[train], traces[test], lm[train], lm[test]
-        cv_ptxts, cv_offsets,cv_keys = ptxts[test],offsets[test],keys[test]
+        cv_ptxts, cv_masks,cv_keys = ptxts[test],masks[test],keys[test]
         data = gsd.signal_data(traces.copy(),keys.copy(),G,len(X_train),len(X_test),len(X_test),cross_eval=True, X_train=X_train,X_test=X_test,Y_train=y_train,Y_test=y_test )
     
     #data = gsd.signal_data(traces.copy(),keys.copy(),G,nTrain,nValid,nTest )
@@ -192,6 +237,7 @@ for hyperparams in hyperparam_settings:
         nonlinearity = nn.ReLU
         dimNodeSignals =[1] + [nFeatureBank]*nLayers
         dimLayersMLP= [nClasses]
+        ML_dimLayersMLP = [nFeatures,nClasses]
         nShiftTaps =[k] * nLayers
         nFilterTaps = [k] * nLayers
         nFilterNodes = [nFeatures] * nLayers
@@ -210,15 +256,30 @@ for hyperparams in hyperparam_settings:
         nSelectedNodes= [nFeatures] *nLayers
         poolingSize=[nFeatures]*nLayers
         
+        
         #Put all the vars in the architecture
         GCATNet = archit.GraphConvolutionAttentionNetwork(dimNodeSignals, nFilterTaps, nAttentionHeads, bias, nonlinearity(), nSelectedNodes, poolingFn, poolingSize, dimLayersMLP, GSO)
         EdgeNet = archit.EdgeVariantGNN(dimNodeSignals, nShiftTaps,nFilterNodes,bias,nonlinearity,nSelectedNodes,poolingFn,poolingSize,dimLayersMLP, GSO)
         ConvNet = archit.SelectionGNN(dimNodeSignals, nFilterTaps, bias, nonlinearity,nSelectedNodes,poolingFn, poolingSize,dimLayersMLP,GSO)
         
+        LinConvNet = mod_archit.SelectionGNN_Lin(dimNodeSignals, nFilterTaps, bias, nonlinearity,nSelectedNodes,poolingFn, poolingSize,dimLayersMLP,GSO)
+        MLPConvNet = archit.SelectionGNN(dimNodeSignals, nFilterTaps, bias, nonlinearity,nSelectedNodes,poolingFn, poolingSize,ML_dimLayersMLP,GSO)
+        LinMLPConvNet = mod_archit.SelectionGNN_Lin(dimNodeSignals, nFilterTaps, bias, nonlinearity,nSelectedNodes,poolingFn, poolingSize,ML_dimLayersMLP,GSO)
+
+        LinGCATNet = mod_archit.GraphConvolutionAttentionNetwork_Lin(dimNodeSignals, nFilterTaps, nAttentionHeads, bias, nonlinearity(), nSelectedNodes, poolingFn, poolingSize, dimLayersMLP, GSO)
+        LinEdgeNet = mod_archit.EdgeVariantGNN_Lin(dimNodeSignals, nShiftTaps,nFilterNodes,bias,nonlinearity,nSelectedNodes,poolingFn,poolingSize,dimLayersMLP, GSO)
+
+        
         architectures = {}
         architectures['EdgeNet'] = EdgeNet
         architectures['ConvNet'] = ConvNet
         architectures['GCATNet'] = GCATNet
+        architectures['LinConvNet'] = LinConvNet
+        architectures['MLPConvNet'] = MLPConvNet
+        architectures['LinMLPConvNet'] = LinMLPConvNet
+        architectures['LinGCATNet'] =LinGCATNet
+        architectures['LinEdgeNet'] = LinEdgeNet
+
         netArch = architectures[chosen_arch]
         
         
@@ -232,10 +293,11 @@ for hyperparams in hyperparam_settings:
                              evaluator,
                              device,
                              chosen_arch,
-                             'test') 
+                             saveDir) 
         
         print("Start Training")
-        
+        print (iteration)
+        iteration = iteration +1
         
         writeVarValues(varsFile, {'nFeatureBank': nFeatureBank,
                                   'nClasses' : nClasses,
@@ -249,21 +311,29 @@ for hyperparams in hyperparam_settings:
                                   })
         
         start = time.perf_counter()
-        
+        print (attack_size)
         thisTrainVars = GNNModel.train(data, nEpochs, batchSize, **trainingOptions)
-        evalVars = GNNModel.evaluate(data, ptx = cv_ptxts, offset = cv_offsets, keys =cv_keys )
+        if attack_size > 0:
+            evalVars = GNNModel.evaluate(data, ptx = cv_ptxts, offset = cv_masks, keys =cv_keys,lm=leakage_model,dataset=dataset ,nRuns=100,attack_size=attack_size)
+        else:
+            evalVars = GNNModel.evaluate(data, ptx = cv_ptxts, offset = cv_masks, keys =cv_keys,lm=leakage_model,dataset=dataset ,nRuns=100)
         
         finish = time.perf_counter()
         runtime = finish-start
-            
+        print(runtime)    
         writeVarValues(varsFile, {'Runtime':runtime})  
         
         writeVarValues(varsFile, evalVars)    
-        results = np.append(results,[evalVars['GE_best']],axis=0)
+        results = np.append(results,[evalVars['GE_last']],axis=0)
+        results_best = np.append(results_best,[evalVars['GE_best']],axis=0)
+
         np.save(resultsFile,results)
-        
+        np.save(results_best_File,results_best)
+        np.save (predictionsFile+str(iteration),evalVars['Prediction'])
         #if were hyperparameter tuning, only run 1 iteration
-        if len(hyperparam_settings) > 20:
+        if not fullCV:
             break
 #utils.make_fig(thisTrainVars, saveDir,nEpochs, validationInterval)
-
+if not cluster:
+    plt.plot(np.transpose(results))
+    plt.plot(np.mean(results,axis=0))
