@@ -41,8 +41,12 @@ def import_traces(cluster, name,mask,size):
     if name == 'ascad':
         (traces,metadata) = get_ascad_traces(cluster)
         (keys, ptxts, masks) = get_ascad_info(metadata)
-        if mask:
-            masks = np.zeros(masks.shape,dtype=int)
+    if name == 'ascad_desync':
+        (traces,metadata) = get_ascad_traces(cluster,name='ASCAD_desync50')
+        (keys, ptxts, masks) = get_ascad_info(metadata)
+
+    if mask:
+        masks = np.zeros(masks.shape,dtype=int)
             
     traces = traces[0:size,:]
     keys = keys[0:size]
@@ -50,7 +54,7 @@ def import_traces(cluster, name,mask,size):
     masks = masks[0:size]
     return (traces,keys,ptxts,masks)
 
-def get_ascad_traces(cluster,mask=False,data='train'):
+def get_ascad_traces(cluster,mask=False,data='train',name='ASCAD'):
     """
     Gets traces from the ASCAD dataset
     path: default folder
@@ -62,9 +66,9 @@ def get_ascad_traces(cluster,mask=False,data='train'):
     #use fixed key
 
     if cluster:
-        path=r'/home/nfs/vascodebruijn/thesis/ASCAD.h5'
+        path=r'/home/nfs/vascodebruijn/thesis/%s.h5' % name
     else:
-        path=r'C:/Users/vascodebruijn/Thesis_Data/ASCAD_data/ASCAD_databases/ASCAD.h5'
+        path=r'C:/Users/vasco/Thesis_Data/ASCAD_data/ASCAD_databases/%s.h5' % name
     
     datafile = h5py.File(path,'r')
     profiling_traces = datafile['Profiling_traces']['traces']
@@ -78,7 +82,7 @@ def get_ascad_traces(cluster,mask=False,data='train'):
 
     if data == 'train':
         return (traces_train, profiling_metadata)
-    else:
+    if data == 'all':
         return (traces_train, profiling_metadata,traces_test,attack_metadata)
 
 def get_ascad_info(metadata,b=2):
@@ -114,7 +118,7 @@ def get_DPA_traces(cluster):
     if cluster:
         path=r'/home/nfs/vascodebruijn/thesis/DPAv4'
     else:
-        path=r'C:/Users/vascodebruijn/Thesis_Data/student-datasets\DPAv4'
+        path=r'C:/Users/vasco/Thesis_Data/student-datasets\DPAv4'
         
     traces_path = r'%s/traces/traces_complete_10000.npy' % path
     fr_traces_path = r'%s/traces/traces_50_Value.npy' % path
@@ -132,7 +136,7 @@ def get_DPA_info(cluster):
     if cluster:
         path = '/home/nfs/vascodebruijn/thesis/dpav4_rsm_index.txt'
     else:
-        path = 'C:\\Users\\vascodebruijn\\Documents\\GitHub\\Thesis\\Python\\dpav4_rsm_index.txt'
+        path = 'C:\\Users\\vasco\\Documents\\GitHub\\Thesis\\Python\\dpav4_rsm_index.txt'
     file = open(path,'r')
     keys = []
     ptxts = []

@@ -16,10 +16,11 @@ else:
 import Utils.dataTools
 import Modules.evaluation as ev
 from sklearn.model_selection import train_test_split
+import numpy as np
 
 class signal_data(Utils.dataTools._dataForClassification):
     
-    def __init__(self,x,y,G,nTrain,nValid,nTest,cross_eval=False, X_train=None,X_test=None,Y_train=None,Y_test=None):
+    def __init__(self,x,y,G,nTrain,nValid,nTest,cross_eval=False, X_train=None,X_test=None,Y_train=None,Y_test=None,X_valid=None,Y_valid=None):
         super().__init__()
         (A,V) = G
         (N,_) = x.shape
@@ -31,7 +32,9 @@ class signal_data(Utils.dataTools._dataForClassification):
         self.nTest = nTest
         #assert nTrain+nValid+nTest <= self.nTotal, "Issue with splitting the dataset in test and train"
         
-        X_valid,Y_valid = X_test,Y_test
+        if X_valid is None:
+            X_valid = X_train[0:nValid,:]
+            Y_valid = Y_train[0:nValid]
 
         
         self.samples['train']['signals'] = X_train

@@ -15,6 +15,7 @@ from sklearn.feature_selection import chi2
 from sklearn.preprocessing import MinMaxScaler
 from  scipy.stats import pearsonr
 from sklearn.decomposition import PCA
+import time
 mask = np.array([0x03, 0x0c, 0x35, 0x3a, 0x50, 0x5f, 0x66, 0x69, 0x96, 0x99, 0xa0, 0xaf, 0xc5, 0xca, 0xf3, 0xfc])
 hw = [bin(x).count("1") for x in range(256)] 
 
@@ -36,6 +37,20 @@ sbox = np.array([
     0xE1, 0xF8, 0x98, 0x11, 0x69, 0xD9, 0x8E, 0x94, 0x9B, 0x1E, 0x87, 0xE9, 0xCE, 0x55, 0x28, 0xDF,
     0x8C, 0xA1, 0x89, 0x0D, 0xBF, 0xE6, 0x42, 0x68, 0x41, 0x99, 0x2D, 0x0F, 0xB0, 0x54, 0xBB, 0x16
 ])
+
+def pre_calc_IVS(dataset):
+    ivlist = np.zeros((256,256,16),dtype=np.int8)
+    for key in range(256):
+        for plaintext in range(256):
+            for mask in range(16):
+                v=0
+                if dataset == "dpa4":
+                    v=intermediate_value_dpa4(plaintext, key, mask)
+                else:
+                    v=intermediate_value(plaintext, key, mask)
+                    
+                ivlist[key,plaintext,mask] =v
+    return ivlist
 
 def feature_reduction(method, k, X,Y, dataset,LM,N):
     """
@@ -85,7 +100,7 @@ def intermediate_value_dpa4(pt, keyguess, offset):
 def intermediate_value(pt, keyguess, mask):
     return sbox[pt ^ keyguess] ^ mask
 
-
+#selection method for guessing entropy
 def evaluate_GE(predictions,plaintxts,offsets,keys,attack_size, model,dataset,n_shuffles,method):
     if method == 'Simple':
         return evaluate_GE_SP(predictions,plaintxts,offsets,keys,attack_size, model,dataset,n_shuffles)
@@ -93,47 +108,61 @@ def evaluate_GE(predictions,plaintxts,offsets,keys,attack_size, model,dataset,n_
         return evaluate_GE_Gen(predictions,plaintxts,offsets,keys,attack_size, model,dataset,n_shuffles)
 
     
-def evaluate_GE_Gen(predictions,plaintxts,offsets,keys,attack_size, model,dataset,n_shuffles):
+def evaluate_GE_Gen(predictions,plaintxts,offsets,keys,attack_size, model,dataset,n_shuffles,interval=50):
     """
-    Better GE calculation method
-    predictions: C*N tensor of class predictions 
+    General GE calculation method
+    predictions: C*N tensor of class predictions (where C refers to the number of classes and N to the number of traces)
     plaintexts: N plaintexts corresponding to the predictions
     offsets: N masks/offsets corresponding to the predictions
     keys: N keys corresponding to the the predictions
     attack_size: number of traces used for attack
-    model: leakage model, either IV(immediate value) or HW (Hamming Weight)
+    model: leakage model, either IV(Immediate Value) or HW (Hamming Weight)
+    dataset: name of the used dataset (used to determine how to calculate IV)
+    n_shuffles: how many times do we calculate 
+    interval:how many points do we want in the resulting graph
     """
     
+    start = time.perf_counter()
+    ivlist = pre_calc_IVS(dataset)
+
     (test_size,nClasses) = predictions.shape
+    #contains keyrank for all iteration
     ge_m = []
+    #iterate over number of shuffles
     for j in range(n_shuffles):
+        #contains keyrank for one iteration
         ge_x = []
         pred = np.zeros(256)
-        cand_ids = list(range(test_size))
-        ids = random.choices(cand_ids, k=attack_size)
-        random.shuffle(ids)    
-        for idx in ids:
-            for keyGuess in range(256):
-                sbox_out = intermediate_value(plaintxts[idx], keyGuess,offsets[idx])
-                if dataset == 'dpa4':
-                    sbox_out = intermediate_value_dpa4(plaintxts[idx], keyGuess,offsets[idx])
-                lv = sbox_out
+        cand_ids = list(range(test_size)) #generate list of traces ids
+        ids = random.choices(cand_ids, k=attack_size) #randomly draw samples from the attack set
+        random.shuffle(ids)    #shuffle the samples for additional randomness 
+        i=0
+        for idx in ids:#calculate keyguesses for each sample
+            i+=1
+            for keyGuess in range(256):#calculate value for keyguess for each key in keyspace
+                #sbox_out = intermediate_value(plaintxts[idx], keyGuess,offsets[idx])
+                lv = ivlist[plaintxts[idx], keyGuess,offsets[idx]]           
                 if model == "HW":
-                    lv = hw[sbox_out]
+                    lv = hw[lv]
                 pred[keyGuess] += np.log(predictions[idx][lv]+ 1e-36)
         
             # Calculate key rank
-            res = np.argmax(np.argsort(pred)[::-1] == keys[0]) #argsort sortira argumente od najmanjeg do najveceg, [::-1} okrece to, argmax vraca redni broj gdje se to desilo
-            ge_x.append(res)
+            if(i % interval == 0):
+                res = np.argmax(np.argsort(pred)[::-1] == keys[0]) #argsort sortira argumente od najmanjeg do najveceg, [::-1} okrece to, argmax vraca redni broj gdje se to desilo
+                ge_x.append(res)
         ge_m.append(ge_x)    
         
     ge_m =np.array(ge_m)
-    
+    finish = time.perf_counter()
+    runtime = finish-start
+    print(runtime)    
+
+    #average over all keyranks to get guessing entropy
     return np.mean(ge_m,axis=0)
 
 def evaluate_GE_SP(predictions,plaintxts,offsets,keys,attack_size, model,dataset,n_shuffles):
     """
-    Better GE calculation method
+    Simple GE calculation method
     predictions: C*N tensor of class predictions 
     plaintexts: N plaintexts corresponding to the predictions
     offsets: N masks/offsets corresponding to the predictions
@@ -247,7 +276,7 @@ def reshape_results(data,F,L,K,efn=1):
     total = F*L*K*efn
     if N<total:
         data = np.pad(data,[(0,total-N),(0,0)],mode='constant',constant_values=np.nan)
-    res = np.reshape(data, (F,L,K,ntraces))
+    res = np.reshape(data, (F,L,K,efn,ntraces))
     return res
 
 def generate_hyperparamlist(candidateF,candidateL,candidateK,candidateFn,dataset='dpa4',arch='ConvNet'):
@@ -274,6 +303,17 @@ def generate_hyperparamlist(candidateF,candidateL,candidateK,candidateFn,dataset
 def save_hyperparamlist(hplist, name):
     with open (name+'.json', 'w') as f:
         f.write(json.dumps(hplist))
+
+def calc_hyperparams(N,M,F,L,K,R,model):
+    result = 0
+    if model == 'ConvNet':
+        result = L*(K+1)*F*F
+    if model == 'EdgeNet':
+        result = L*(K*(M+N)+N)*F*F
+    if model == 'GCATNet':
+        result = L*R*(F*F+2*F+F*F*(K+1))
+    return result
+
 
 def gen_hyperparam_scatterplot(res):
     params = res['hyperparam']

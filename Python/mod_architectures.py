@@ -958,5 +958,256 @@ class EdgeVariantGNN_Lin(nn.Module):
             self.EVGFL[2*l].addGSO(self.S)
             self.EVGFL[2*l+1].addGSO(self.S)
 
+class EdgeConvolutionGNN(nn.Module):
+    """
+    EdgeConvolutionGCNN: implements an architecture with the first layer using
+    edge varying filter, and the second layer using convolutional filter
+    
+    Initialization:
+        EdgeVariantGNN(dimNodeSignals, nShiftTaps, nFilterNodes, bias,
+                       nonlinearity, # Nonlinearity
+                       nSelectedNodes, poolingFunction, poolingSize,
+                       dimLayersMLP, # MLP in the end
+                       GSO, order = None) # Structure
+        Input:
+            /** Graph filtering layers **/
+            dimNodeSignals (list of int): dimension of the signals at each layer
+                (i.e. number of features at each node, or size of the vector
+                 supported at each node)
+            nShiftTaps (list of int): number of shift taps on each layer
+                (i.e. information is gathered from up to the (nShiftTaps-1)-hop
+                 neighborhood)
+            nFilterNodes (list of int): number of nodes selected for the EV part
+                of the hybrid EV filtering (recall that the first ones in the
+                given permutation of S are the nodes selected; if any element in
+                nFilterNodes is equal to the number of nodes, then we have a
+                full edge-variant filter, not an hybrid one)
+            bias (bool): include bias after graph filter on every layer
+            >> Obs.: dimNodeSignals[0] is the number of features (the dimension
+                of the node signals) of the data, where dimNodeSignals[l] is the
+                dimension obtained at the output of layer l, l=1,...,L.
+                Therefore, for L layers, len(dimNodeSignals) = L+1. Slightly
+                different, nShiftTaps[l] is the number of filter taps for the
+                filters implemented at layer l+1, thus len(nShiftTaps) = L.
+                
+            /** Activation function **/
+            nonlinearity (torch.nn): module from torch.nn non-linear activations
+            
+            /** Pooling **/
+            nSelectedNodes (list of int): number of nodes to keep after pooling
+                on each layer
+            >> Obs.: The selected nodes are the first nSelectedNodes[l] starting
+                from the first element in the order specified by the given GSO
+            poolingFunction (nn.Module in Utils.graphML): summarizing function
+            poolingSize (list of int): size of the neighborhood to compute the
+                summary from at each layer
+                
+            /** Readout layer **/
+            dimLayersMLP (list of int): number of output hidden units of a
+                sequence of fully connected layers after the graph filters have
+                been applied
+                
+            /** Graph structure **/
+            GSO (np.array): graph shift operator of choice.
+            order (string or None, default = None): determine the criteria to
+                use when reordering the nodes (i.e. for pooling reasons); the
+                string has to be such that there is a function named 
+                'perm' + order in Utils.graphTools that takes as input the GSO
+                and returns a new GSO ordered by the specified criteria and
+                an order array
+        Output:
+            nn.Module with a Selection GNN architecture with the above specified
+            characteristics, implementing edge-variant graph filters.
+    Forward call:
+        EdgeVariantGNN(x)
+        Input:
+            x (torch.tensor): input data of shape
+                batchSize x dimFeatures x numberNodes
+        Output:
+            y (torch.tensor): output data after being processed by the selection
+                GNN; shape: batchSize x dimLayersMLP[-1]
+                
+    Other methods:
+            
+        y, yGNN = .splitForward(x): gives the output of the entire GNN y,
+        which is of shape batchSize x dimLayersMLP[-1], as well as the output
+        of all the GNN layers (i.e. before the MLP layers), yGNN of shape
+        batchSize x nSelectedNodes[-1] x dimFeatures[-1]. This can be used to
+        isolate the effect of graph filtering from the effect of the readout
+        layer.
+    """
+
+    def __init__(self,
+                 # Graph filtering
+                 dimNodeSignals, nShiftTaps, nFilterNodes, bias,
+                 # Nonlinearity
+                 nonlinearity,
+                 # Pooling
+                 nSelectedNodes, poolingFunction, poolingSize,
+                 # MLP in the end
+                 dimLayersMLP,
+                 # Structure
+                 GSO, order = None):
+        # Initialize parent:
+        super().__init__()
+        # dimNodeSignals should be a list and of size 1 more than the number of
+        # filter taps (because of the input number of features)
+        assert len(dimNodeSignals) == len(nShiftTaps) + 1
+        # Filter nodes is a list of int with the number of nodes to select for
+        # the EV part at each layer; it should have the same length as the
+        # number of filter taps
+        assert len(nFilterNodes) == len(nShiftTaps)
+        # nSelectedNodes should be a list of size nShiftTaps, since the number
+        # of nodes in the first layer is always the size of the graph
+        assert len(nSelectedNodes) == len(nShiftTaps)
+        # poolingSize also has to be a list of the same size
+        assert len(poolingSize) == len(nShiftTaps)
+        # Check whether the GSO has features or not. After that, always handle
+        # it as a matrix of dimension E x N x N.
+        assert len(GSO.shape) == 2 or len(GSO.shape) == 3
+        if len(GSO.shape) == 2:
+            assert GSO.shape[0] == GSO.shape[1]
+            GSO = GSO.reshape([1, GSO.shape[0], GSO.shape[1]]) # 1 x N x N
+        else:
+            assert GSO.shape[1] == GSO.shape[2] # E x N x N
+        # Store the values (using the notation in the paper):
+        self.L = len(nShiftTaps) # Number of graph filtering layers
+        self.F = dimNodeSignals # Features
+        self.K = nShiftTaps # Filter Shift taps
+        self.M = nFilterNodes
+        self.E = GSO.shape[0] # Number of edge features
+        self.N = [GSO.shape[1]] + nSelectedNodes # Number of nodes
+        # See that we adding N_{0} = N as the number of nodes input the first
+        # layer: this above is the list containing how many nodes are between
+        # each layer.
+        self.bias = bias # Boolean
+        if order is not None:
+            # If there's going to be reordering, then the value of the
+            # permutation function will be given by the criteria in 
+            # self.reorder. For instance, if self.reorder = 'Degree', then
+            # we end up calling the function Utils.graphTools.permDegree.
+            # We need to be sure that the function 'perm' + self.reorder
+            # is available in the Utils.graphTools module.
+            self.permFunction = eval('Utils.graphTools.perm' + order)
+        else:
+            self.permFunction = Utils.graphTools.permIdentity
+            # This is overriden if coarsening is selected, since the ordering
+            # function is native to that pooling method.
+        self.S, self.order = self.permFunction(GSO)
+        if 'torch' not in repr(self.S.dtype):
+            self.S = torch.tensor(self.S)
+        self.sigma = nonlinearity
+        self.rho = poolingFunction
+        self.alpha = poolingSize
+        self.dimLayersMLP = dimLayersMLP
+        # And now, we're finally ready to create the architecture:
+        #\\\ Graph filtering layers \\\
+        # OBS.: We could join this for with the one before, but we keep separate
+        # for clarity of code.
+        evgfl = [] # Node Variant GF Layers
+        #for l in range(self.L):
+        #\\ Graph filtering stage:
+            
+        #First add an EdgeVariant layer    
+        evgfl.append(gml.EdgeVariantGF(self.F[0], self.F[1],
+                                        self.K[0], self.M[0], self.N[0],
+                                        self.E, self.bias))
+        # There is a 3*l below here, because we have three elements per
+        # layer: graph filter, nonlinearity and pooling, so after each layer
+        # we're actually adding elements to the (sequential) list.
+        evgfl[0].addGSO(self.S)
+        #\\ Nonlinearity
+        evgfl.append(self.sigma())
+        #\\ Pooling
+        evgfl.append(self.rho(self.N[0], self.N[1], self.alpha[0]))
+        # Same as before, this is 3*l+2
+        evgfl[2].addGSO(self.S)
+            
+        #Then add an GCNN layer
+        
+        evgfl.append(gml.GraphFilter(self.F[1], self.F[2], self.K[1],
+                                            self.E, self.bias))
+        # There is a 3*l below here, because we have three elements per
+        # layer: graph filter, nonlinearity and pooling, so after each layer
+        # we're actually adding elements to the (sequential) list.
+        evgfl[3].addGSO(self.S)
+        #\\ Nonlinearity
+        evgfl.append(self.sigma())
+        #\\ Pooling
+        evgfl.append(self.rho(self.N[1], self.N[2], self.alpha[1]))
+        # Same as before, this is 3*l+2
+        evgfl[5].addGSO(self.S)
+            
+            
+        # And now feed them into the sequential
+        self.EVGFL = nn.Sequential(*evgfl) # Graph Filtering Layers
+        #\\\ MLP (Fully Connected Layers) \\\
+        fc = []
+        if len(self.dimLayersMLP) > 0: # Maybe we don't want to MLP anything
+            # The first layer has to connect whatever was left of the graph
+            # signal, flattened.
+            dimInputMLP = self.N[-1] * self.F[-1]
+            # (i.e., we have N[-1] nodes left, each one described by F[-1]
+            # features which means this will be flattened into a vector of size
+            # N[-1]*F[-1])
+            fc.append(nn.Linear(dimInputMLP, dimLayersMLP[0], bias = self.bias))
+            # The last linear layer cannot be followed by nonlinearity, because
+            # usually, this nonlinearity depends on the loss function (for
+            # instance, if we have a classification problem, this nonlinearity
+            # is already handled by the cross entropy loss or we add a softmax.)
+            for l in range(len(dimLayersMLP)-1):
+                # Add the nonlinearity because there's another linear layer
+                # coming
+                fc.append(self.sigma())
+                # And add the linear layer
+                fc.append(nn.Linear(dimLayersMLP[l], dimLayersMLP[l+1],
+                                    bias = self.bias))
+        # And we're done
+        self.MLP = nn.Sequential(*fc)
+        # so we finally have the architecture.
+        
+    def splitForward(self, x):
+        # Now we compute the forward call
+        assert len(x.shape) == 3
+        batchSize = x.shape[0]
+        assert x.shape[1] == self.F[0]
+        assert x.shape[2] == self.N[0]
+        # Reorder
+        x = x[:, :, self.order] # B x F x N
+        # Let's call the graph filtering layer
+        y= self.EVGFL(x)
+        # Flatten the output
+        yFlat = y.reshape(batchSize, self.F[-1] * self.N[-1])
+        # And, feed it into the MLP
+        return self.MLP(yFlat), y
+        # If self.MLP is a sequential on an empty list it just does nothing.
+        
+    def forward(self, x):
+        
+        # Most of the times, we just need the actual, last output. But, since in
+        # this case, we also want to compare with the output of the GNN itself,
+        # we need to create this other forward funciton that takes both outputs
+        # (the GNN and the MLP) and returns only the MLP output in the proper
+        # forward function.
+        output, _ = self.splitForward(x)
+        
+        return output
+
+    def to(self, device):
+        # Because only the filter taps and the weights are registered as
+        # parameters, when we do a .to(device) operation it does not move the
+        # GSOs. So we need to move them ourselves.
+        # Call the parent .to() method (to move the registered parameters)
+        super().to(device)
+        # Move the GSO
+        self.S = self.S.to(device)
+        # And all the other variables derived from it.
+        for l in range(self.L):
+            self.EVGFL[3*l].addGSO(self.S)
+            self.EVGFL[3*l+2].addGSO(self.S)
+
+
+
+
 def nonlin(x):
     return x

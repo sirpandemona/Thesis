@@ -65,7 +65,7 @@ def generate_graph(x,edge_fn):
     
 def seq_connection(x):
     """
-    Connects all nodes corresponding to temporal successive nodes
+    Connects all nodes corresponding to the cyclic graph
     Params:
         x: Traces in np-format (num_traces*num_features)
     Out:
@@ -73,10 +73,34 @@ def seq_connection(x):
     """
     (_,N) = x.shape
     A = np.zeros((N,N))
+    A[N-1][0] = 1
+    A[0][N-1] = 1
     for i in range(N-1):
         j= i+1
         A[i][j] = 1
         A[j][i] = 1
+        
+    return A
+
+def random_graph(x,k):
+    """
+    Connects nodes by randomlygenerating k*n edges
+    Params:
+        x: Traces in np-format (num_traces*num_features)
+        k: amount of neighbours
+    Out:
+        A: Adjacency matrix
+    """
+    (_,N) = x.shape
+    A = np.zeros((N,N))
+    
+    M= N*k
+    
+    idx = np.random.randint(low=0, high=N, size=(M,2))
+    
+    for (i,j) in idx:
+        A[i][j] = 1
+        
     return A
 
 def corr_tresh_connection(x,c):
@@ -127,6 +151,15 @@ def corr_knn_connection(x,k):
         A[i, top] =1
     return A  
 
+def full_connected(x):
+    """Generates a fully connected graph based on X"""
+    (N,f) = x.shape
+    return np.ones((f,f))     
+    
+def identity_graph(x):
+    (N,f) = x.shape
+    return np.identity(f)
+
 def get_edge_fn(fn_name,threshold):
     """
     gets the actual python function for the edge generation method
@@ -135,11 +168,16 @@ def get_edge_fn(fn_name,threshold):
     seq_fn = seq_connection
     corr_thresh_fn = lambda x: corr_tresh_connection(x,threshold)
     corr_knn_fn = lambda x: corr_knn_connection(x,threshold)
-    
+    full_con_fn = full_connected
+    rnd_fn = lambda x: random_graph(x,threshold)
+    id_fn = identity_graph
     edge_dic = {
         "Successive": seq_fn,
         "Threshold Correlation" : corr_thresh_fn,
-        "KNN Correlation": corr_knn_fn
+        "KNN Correlation": corr_knn_fn,
+        "Fully Connected" : full_con_fn,
+        "Random": rnd_fn,
+        "Identity":  id_fn
         }
     return edge_dic[fn_name]
     
@@ -196,19 +234,20 @@ def evaluateGE(model, data, **kwargs):
     with torch.no_grad():
         # Process the samples
         yHatTest = model.archit(xTest)
-        yHatTest_norm =scipy.special.softmax(yHatTest.numpy())
+        #yHatTest_norm =scipy.special.softmax(yHatTest.numpy())
         # yHatTest is of shape
         #   testSize x numberOfClasses
         # We compute the error
         costBest = data.evaluate(yHatTest, yTest)
         #GE_best = data.evaluate_GE(yHatTest,yTest)
         #GE_best = evaluate_traces(key_probs,keys,500,data)
-        GE_best = utils.evaluate_GE(yHatTest_norm,plaintxts,offsets,keys,attack_size, lm,dataset,nRuns,GE_method)
+        #GE_best = utils.evaluate_GE(yHatTest_norm,plaintxts,offsets,keys,attack_size, lm,dataset,nRuns,GE_method)
     ##############
     # LAST MODEL #
     ##############
     evalVars = {}
 
+    model.load(label = 'Last')
 
     with torch.no_grad():
         # Process the samples
@@ -222,11 +261,10 @@ def evaluateGE(model, data, **kwargs):
         #GE_last = evaluate_traces(key_probs,keys,500,data)
         GE_last = utils.evaluate_GE(yHatTest_norm,plaintxts,offsets,keys,attack_size, lm,dataset,nRuns,GE_method)
     
-    model.load(label = 'Last')
     evalVars['Prediction'] = yHatTest_norm
     evalVars['costBest'] = costBest.item()
     evalVars['costLast'] = costLast.item()
-    evalVars['GE_best'] = GE_best
+    #evalVars['GE_best'] = GE_best
     evalVars['GE_last'] = GE_last
     
     if doSaveVars:
