@@ -7,6 +7,7 @@ Created on Wed Jul 29 15:23:25 2020
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import patches
 import json
 import random
 import pickle
@@ -16,6 +17,9 @@ from sklearn.preprocessing import MinMaxScaler
 from  scipy.stats import pearsonr
 from sklearn.decomposition import PCA
 import time
+from scipy.sparse import csgraph
+import networkx as nx
+import shutil
 mask = np.array([0x03, 0x0c, 0x35, 0x3a, 0x50, 0x5f, 0x66, 0x69, 0x96, 0x99, 0xa0, 0xaf, 0xc5, 0xca, 0xf3, 0xfc])
 hw = [bin(x).count("1") for x in range(256)] 
 
@@ -314,6 +318,34 @@ def calc_hyperparams(N,M,F,L,K,R,model):
         result = L*R*(F*F+2*F+F*F*(K+1))
     return result
 
+def get_traces_threshold(X, threshold,stats=True):
+    """X; N*M matrix which contains GE-results
+    threshold: value which the GE has to be below
+    """
+    (N,M) = X.shape
+    res = np.zeros((N,1))
+    for i in range (N):
+        row = X[i]
+        idx = np.where(row <= threshold)
+        if  np.isnan(row[0]):
+            res[i] = np.nan
+        elif len(idx[0]) == 0:
+            res[i] = M+1
+        else:
+            res[i] = idx[0][0]
+    avg = np.nanmean(res)
+    std = np.nanstd(res)
+    min_arg = np.amin (res)
+    max_arg = np.amax(res)
+    if stats:
+        return (avg,std,min_arg,max_arg)
+    else:
+        return res
+    
+def get_traces_t_print(X, threshold=1):
+    (mean, std,min_arg,max_arg)=  get_traces_threshold(X, threshold)
+    printline = ""+str(mean) +" & "+str(std)+" &" + str(min_arg)+" & " + str(max_arg)
+    print(printline)
 
 def gen_hyperparam_scatterplot(res):
     params = res['hyperparam']
@@ -336,3 +368,83 @@ def map_hws(y):
     for k in y:
         yhw.append(hw[int(k)])
     return np.asarray(yhw)
+
+def get_num_disj_graphs(A):
+    lap = csgraph.laplacian(A,normed=False)
+    w,v = np.linalg.eigh(lap)
+    zeroidx = np.where(w>=0)[0][0]
+    return (w,v)
+    
+def draw_graph(A):
+    g = nx.convert_matrix.from_numpy_matrix(A)
+    nx.draw_circular(g,node_size=2)
+    
+def getTrainVarsForSetup(setupname):
+    data = get_all_results()
+    keys = list(data.keys())
+    res = {}
+    for key in keys:
+        if setupname in key and 'trainVars' in key:
+            res[key] = data[key]
+    return res
+
+def showTrainLosses(items):
+    keys = list(items.keys())
+    trainlosses = []
+    validlosses = []
+    for key in keys:
+        item = items[key]
+        trainingvars = item[list(item.keys())[0]]
+        trainloss = trainingvars['lossTrain']
+        validloss = trainingvars['lossValid']
+        validlosses.append(validloss)
+        trainlosses.append(trainloss)
+    return (np.array(validlosses), np.array(trainlosses))
+
+def genxvalues(data, minval,maxval):
+    n = len(data)
+    xvals = np.linspace(minval,maxval,n)
+    return xvals
+    
+
+def deletemodels(savedir):
+    rm_path = os.path.join(savedir,"savedModels")
+    shutil.rmtree(rm_path)
+    
+def filter_traces(data, threshold):
+    #Only selects traces which last value are below the given threshold
+    #return filtered traces and percentage of convergin traces
+    
+    (n,m) = data.shape
+    filtered_traces = []
+    for i in range(n):
+        trace = data[i,:]
+        if trace[m-1] <= threshold:
+            filtered_traces.append(trace)
+    perc_conv = (len(filtered_traces) / n)*100
+    return (np.array(filtered_traces), perc_conv)
+
+def filter_losses(setupname,threshold,data=None):
+    if data is None:
+        data = get_all_results()
+    keys = list(data.keys())
+    res = {}
+    for key in keys:
+        if setupname in key and 'trainVars' in key:
+            subkey = key.replace('\\trainVars','')
+            trace = data[subkey]['res'][0]
+            if trace[-1] <= threshold:
+                res[key] = data[key]
+    return res
+
+def filter_losses_mul(setupname,threshold,data=None):
+    if data is None:
+        data = get_all_results()
+    res = filter_losses(setupname+'\\',threshold,data)
+    for i in range (0,11):
+        name = setupname+'-'+str(i)+'\\'
+        name2 = setupname+'_'+str(i)+'\\'
+        res.update(filter_losses(name,threshold,data=data))
+        res.update(filter_losses(name2,threshold,data=data))
+
+    return res

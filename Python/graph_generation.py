@@ -32,6 +32,7 @@ def get_graph(dataset,nFeatures,edge_function,threshold,traces):
     """
     General function to retrieve graph, 
     or to generate graph is no existing graph is found
+    Random Graph should always be generated (obviously)
     """
     
     
@@ -39,13 +40,14 @@ def get_graph(dataset,nFeatures,edge_function,threshold,traces):
     edge_fn = get_edge_fn(edge_function,threshold)
 
     print(graph_name)
-    if os.path.isfile(graph_name):
+    if os.path.isfile(graph_name) and edge_fn != "Random":
         A = np.load(graph_name,'r')
         G = (A,len(A))
     else:
         G = generate_graph(traces,edge_fn)    
         (A,_) = G
-        np.save(graph_name,A)
+        if edge_fn != "Random":
+            np.save(graph_name,A)
     return G
 def generate_graph(x,edge_fn):
     """

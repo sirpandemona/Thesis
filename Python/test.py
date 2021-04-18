@@ -79,7 +79,7 @@ else:
 fullCV = True
 randomCV = False
 attack_size = 0
-
+remove_training_models = True
 if len( input_args) > 2:
     fullCV = input_args[2] == 'True' or input_args[2] == True
     
@@ -96,7 +96,7 @@ saveDir=os.path.join(saveDirRoot,today)
  
 saveDir = os.path.join(saveDir, thisFilename) # Dir where to save all the results from each 
 
-date = datetime.datetime.now().strftime("%Y%m%d%H%M")
+date = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
  #Hour should be large enought discriminator
 saveDir = saveDir + '-' + date
 #writer = SummaryWriter()
@@ -129,7 +129,7 @@ if cluster:
     nEpochs = 100
     
 batchSize = 200 # Batch size
-validationInterval = 100 # How many training steps to do the validation
+validationInterval = 50 # How many training steps to do the validation
 trainingOptions = {} 
 printInterval = 5000
    
@@ -186,6 +186,7 @@ for hyperparams in hyperparam_settings:
     size_dataset = hyperparams['Size Dataset']
     if 'nTrain' in hyperparams:
         nTrain = hyperparams['nTrain']
+    if 'nValid' in hyperparams:   
         nValid = hyperparams ['nValid']
         nTest = hyperparams['nTest']
     
@@ -196,6 +197,8 @@ for hyperparams in hyperparam_settings:
     if "L1" in hyperparams:
         l1_norm = hyperparams["L1"]        
     trainingOptions['L1'] = l1_norm
+    if "LR" in hyperparams:
+        learningRate = hyperparams["LR"]
     
  
     if cr:
@@ -282,6 +285,13 @@ for hyperparams in hyperparam_settings:
             X_test,y_test = np.append(traces_test,traces[test],axis = 0),np.append(lm_attack,lm[test])
             cv_ptxts, cv_masks,cv_keys = np.append(attack_ptxts,ptxts[test]), np.append(attack_masks,masks[test]), np.append(attack_keys,keys[test])
          
+            
+        if (dataset == 'dpa4' and nTrain != 9000) :
+            reduce_idx = np.random.choice(range(9000),size=nTrain,replace=False)
+            X_train = X_train[reduce_idx]
+            y_train = y_train[reduce_idx]
+            
+            
         data = gsd.signal_data(traces.copy(),keys.copy(),G,len(X_train),len(X_test),len(X_test),cross_eval=True, X_train=X_train,X_test=X_test,Y_train=y_train,Y_test=y_test )
     
         if (dataset == 'ascad' or dataset == 'ascad_desync') and fr == False:
@@ -409,6 +419,8 @@ for hyperparams in hyperparam_settings:
         #if were hyperparameter tuning, only run 1 iteration
         if not fullCV:
             break
+if remove_training_models:        
+    utils.deletemodels(saveDir)
 #utils.make_fig(thisTrainVars, saveDir,nEpochs, validationInterval)
 if not cluster:
     plt.plot(np.transpose(results))
