@@ -7,12 +7,7 @@ Created on Tue Jun 30 12:58:55 2020
 import sys
 import os
 import torch
-cluster = os.getcwd() != 'C:\\Users\\vascodebruijn\\Documents\\GitHub\\Thesis\\Python'
 module_path = os.path.abspath(os.path.join('..'))
-if cluster:
-    sys.path.insert(1, '\\home\\nfs\\vascodebruijn\\graph-neural-networks-networks')
-else:    
-    sys.path.insert(1, 'C:\\Users\\vascodebruijn\\Documents\\GitHub\\graph-neural-networks')
 import Utils.dataTools
 import Modules.evaluation as ev
 from sklearn.model_selection import train_test_split

@@ -21,13 +21,8 @@ import torch.optim as optim
 import json
 from sklearn.model_selection import KFold
 #shortcut to check which path should be used
-cluster = os.getcwd() != 'C:\\Users\\vasco\\Documents\\GitHub\\Thesis\\Python'
 #import Albertos lib
 module_path = os.path.abspath(os.path.join('..'))
-if cluster:
-    sys.path.insert(1, '\\home\\nfs\\vascodebruijn\\graph-neural-networks-networks')
-else:    
-    sys.path.insert(1, 'C:\\Users\\vasco\\Documents\\GitHub\\graph-neural-networks')
 
 import Utils.graphTools as graphTools
 import Utils.dataTools
@@ -125,8 +120,6 @@ nTest = 1000
 
 nEpochs = 10 # Number of epochs
 
-if cluster: 
-    nEpochs = 100
     
 batchSize = 200 # Batch size
 validationInterval = 50 # How many training steps to do the validation
@@ -217,7 +210,7 @@ for hyperparams in hyperparam_settings:
     if dataset == 'dpa4':
         nFeatures=50
     #get the data and transform it into a graph
-    (traces,keys,ptxts,masks)= import_traces.import_traces(cluster, dataset,mask, size_dataset) 
+    (traces,keys,ptxts,masks)= import_traces.import_traces(dataset,mask, size_dataset) 
     
 
    
@@ -243,7 +236,7 @@ for hyperparams in hyperparam_settings:
         name = 'ASCAD'
         if dataset == 'ascad_desync':
             name = 'ASCAD_desync50'
-        (traces_train, profiling_metadata,traces_test,attack_metadata) = import_traces.get_ascad_traces(cluster,data='all',name=name)
+        (traces_train, profiling_metadata,traces_test,attack_metadata) = import_traces.get_ascad_traces(data='all',name=name)
         (attack_keys, attack_ptxts, attack_masks) = import_traces.get_ascad_info(attack_metadata)
         if mask:
             attack_masks = np.zeros(attack_masks.shape,dtype=int)
@@ -422,6 +415,5 @@ for hyperparams in hyperparam_settings:
 if remove_training_models:        
     utils.deletemodels(saveDir)
 #utils.make_fig(thisTrainVars, saveDir,nEpochs, validationInterval)
-if not cluster:
-    plt.plot(np.transpose(results))
-    plt.plot(np.mean(results,axis=0))
+plt.plot(np.transpose(results))
+plt.plot(np.mean(results,axis=0))

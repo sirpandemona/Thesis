@@ -31,7 +31,7 @@ sbox=(
     0x8c,0xa1,0x89,0x0d,0xbf,0xe6,0x42,0x68,0x41,0x99,0x2d,0x0f,0xb0,0x54,0xbb,0x16) 
 hw = [bin(x).count("1") for x in range(256)] 
  
-def import_traces(cluster, name,mask,size):
+def import_traces( name,mask,size,cluster=False):
     """Overarching import function"""
     traces = []
     keys = []
@@ -65,10 +65,7 @@ def get_ascad_traces(cluster,mask=False,data='train',name='ASCAD'):
     
     #use fixed key
 
-    if cluster:
-        path=r'/home/nfs/vascodebruijn/thesis/%s.h5' % name
-    else:
-        path=r'C:/Users/vasco/Thesis_Data/ASCAD_data/ASCAD_databases/%s.h5' % name
+    path=r'<location ASCAD dataset>/ASCAD_data/ASCAD_databases/%s.h5' % name
     
     datafile = h5py.File(path,'r')
     profiling_traces = datafile['Profiling_traces']['traces']
@@ -115,10 +112,7 @@ def get_DPA_traces(cluster):
     hw: Whether the full key, or the HW model of the key should be loaded
     feat_red: Whether the full dataset should be used, or the one with feature reduction
     """
-    if cluster:
-        path=r'/home/nfs/vascodebruijn/thesis/DPAv4'
-    else:
-        path=r'C:/Users/vasco/Thesis_Data/student-datasets\DPAv4'
+    path=r'<location DPA dataset>'
         
     traces_path = r'%s/traces/traces_complete_10000.npy' % path
     fr_traces_path = r'%s/traces/traces_50_Value.npy' % path
@@ -133,10 +127,7 @@ def get_DPA_traces(cluster):
     return (traces,keys)
 
 def get_DPA_info(cluster):
-    if cluster:
-        path = '/home/nfs/vascodebruijn/thesis/dpav4_rsm_index.txt'
-    else:
-        path = 'C:\\Users\\vasco\\Documents\\GitHub\\Thesis\\Python\\dpav4_rsm_index.txt'
+    path = '<location DPA dataset>/dpav4_rsm_index.txt'
     file = open(path,'r')
     keys = []
     ptxts = []

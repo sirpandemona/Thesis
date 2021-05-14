@@ -19,14 +19,8 @@ import torch.nn as nn
 import torch.optim as optim
 import json
 from sklearn.model_selection import KFold
-#shortcut to check which path should be used
-cluster = os.getcwd() != 'C:\\Users\\vasco\\Documents\\GitHub\\Thesis\\Python'
 #import Albertos lib
 module_path = os.path.abspath(os.path.join('..'))
-if cluster:
-    sys.path.insert(1, '\\home\\nfs\\vascodebruijn\\graph-neural-networks-networks')
-else:    
-    sys.path.insert(1, 'C:\\Users\\vasco\\Documents\\GitHub\\graph-neural-networks')
 
 import Utils.graphTools as graphTools
 import Utils.dataTools
