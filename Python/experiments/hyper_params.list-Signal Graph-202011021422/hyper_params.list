@@ -1,1 +1,0 @@
-[{"F": 4, "nClasses": 9, "k": 3, "nLayers": 4, "Feature Reduction": true, "Class Reduction": true, "Used Architecture": "ConvNet", "Edge Function": "KNN Correlation", "EdgeFn Threshold": 5, "dataset": "ascad", "Size Dataset": 1000, "Feature Reduction Method": "PCA", "mask": true}]
